@@ -1,0 +1,50 @@
+{
+  "id": 12,
+  "code": "RJ01234567",
+  "title": "示例作品一",
+  "circle": { "id": 3, "name": "示例社团" },
+  "release_date": "2024-05-01",
+  "nsfw": false,
+  "rate_average": 4.62,
+  "rate_count": 318,
+  "has_cover": true,
+  "cover_version": 1,
+  "missing": false,
+  "favorite": true,
+  "progress": {
+    "track_id": 102,
+    "position_ms": 812000,
+    "track_duration_ms": 1995000,
+    "finished": true,
+    "replaying": true,
+    "resumable": true,
+    "group_path": "mp3/SE有"
+  },
+  "my_rating": 4,
+  "vas": [
+    { "id": "va-sample-1", "name": "示例声优甲" },
+    { "id": "va-sample-2", "name": "示例声优乙" }
+  ],
+  "tags": [
+    { "id": 7, "name": "ASMR" },
+    { "id": 9, "name": "耳语" }
+  ],
+  "total_duration_ms": null,
+  "tracks": [
+    { "id": 101, "path": "mp3/SE有/Tr01.mp3", "kind": "audio", "size": 4821733, "duration_ms": 301000, "has_subtitle": true, "subtitle_formats": ["lrc"], "missing": false, "video": null, "loudness": { "integrated_lufs": -18.4, "true_peak_dbtp": -1.2 } },
+    { "id": 102, "path": "mp3/SE有/Tr02.mp3", "kind": "audio", "size": 31912880, "duration_ms": 1995000, "has_subtitle": false, "subtitle_formats": [], "missing": false, "video": null, "loudness": null },
+    { "id": 103, "path": "mp3/SE有/Tr01.lrc", "kind": "subtitle", "size": 2311, "duration_ms": null, "has_subtitle": false, "subtitle_formats": [], "missing": false, "video": null, "loudness": null },
+    { "id": 104, "path": "wav/Tr01.wav", "kind": "audio", "size": 53120044, "duration_ms": null, "has_subtitle": false, "subtitle_formats": [], "missing": false, "video": null, "loudness": null },
+    { "id": 105, "path": "wav/Tr02.wav", "kind": "audio", "size": null, "duration_ms": null, "has_subtitle": false, "subtitle_formats": [], "missing": true, "video": null, "loudness": null },
+    { "id": 106, "path": "cover.jpg", "kind": "image", "size": 182733, "duration_ms": null, "has_subtitle": false, "subtitle_formats": [], "missing": false, "video": null, "loudness": null }
+  ],
+  "my_review": {
+    "rating": 4,
+    "text": "耳かき的部分很舒服，后半略长。",
+    "updated_at": 1760245200000
+  },
+  "locations": [
+    { "root_id": "local", "root_name": "本地作品", "path": "示例社团/RJ01234567", "missing": false },
+    { "root_id": "cloud", "root_name": "云端作品", "path": "RJ01234567", "missing": true }
+  ]
+}

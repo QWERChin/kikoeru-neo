@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT into_id FROM tag_merges WHERE from_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "into_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "tag_merges",
+            "name": "into_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7c6133159e6e49218dbbebfcb55a54a004d30174306db68e8c958bd9d92e66a2"
+}

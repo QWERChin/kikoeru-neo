@@ -1,0 +1,4 @@
+[
+  { "id": "local", "display_name": "本地作品", "kind": "local", "status": "ok", "last_scan_at": 1791699000000, "work_count": 120, "source": "config", "settings": { "type": "local", "path": "/srv/media/works", "watch": false, "auto_scan_interval": null }, "next_scan_at": null, "watching": false },
+  { "id": "cloud", "display_name": "云端作品", "kind": "openlist", "status": "unknown", "last_scan_at": null, "work_count": 48, "source": "config", "settings": { "type": "openlist", "url": "https://openlist.example.lan", "base_path": "/cloud/云端作品", "username": "kikoeru", "password_set": true, "list_concurrency": null, "link_rate": null, "auto_scan_interval": null }, "next_scan_at": null, "watching": false }
+]

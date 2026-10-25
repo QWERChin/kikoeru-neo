@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO play_progress\n                       (user_id, work_id, track_id, position_ms, group_path, finished_at,\n                        replaying, updated_at)\n                     VALUES ($1, $2, NULL, $3, NULL, $4, FALSE, $5)\n                     ON CONFLICT (user_id, work_id) DO UPDATE SET\n                       track_id = excluded.track_id, position_ms = excluded.position_ms,\n                       group_path = excluded.group_path, finished_at = excluded.finished_at,\n                       replaying = excluded.replaying, updated_at = excluded.updated_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "f867386642a8b8b2d8655c6936232740d40e1cd93576f40f9e8bb007cfee2810"
+}

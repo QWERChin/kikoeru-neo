@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT integrated_lufs, true_peak_dbtp FROM track_analysis\n         WHERE track_id = $1 AND size IS NOT DISTINCT FROM $2 AND mtime IS NOT DISTINCT FROM $3\n           AND (mtime IS NOT NULL OR analyzed_at >= $4)",
+  "describe": {
+    "columns": [
+      {
+        "name": "integrated_lufs",
+        "ordinal": 0,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "track_analysis",
+            "name": "integrated_lufs"
+          }
+        }
+      },
+      {
+        "name": "true_peak_dbtp",
+        "ordinal": 1,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "track_analysis",
+            "name": "true_peak_dbtp"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "875490bb9cb05d45258ed58f1ed7deabc7f39175cfbf4b78cb9d6392f76c9d97"
+}

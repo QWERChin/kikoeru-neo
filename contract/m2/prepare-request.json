@@ -1,0 +1,4 @@
+{
+  "can_play": ["audio/mpeg", "audio/wav", "audio/flac", "audio/mp4", "video/mp4"],
+  "force_fallback": false
+}

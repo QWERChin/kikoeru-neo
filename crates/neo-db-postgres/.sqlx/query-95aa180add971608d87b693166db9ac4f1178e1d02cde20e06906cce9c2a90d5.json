@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO roots (id, display_name) VALUES ($1, $2)\n             ON CONFLICT (id) DO UPDATE SET display_name = excluded.display_name",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "95aa180add971608d87b693166db9ac4f1178e1d02cde20e06906cce9c2a90d5"
+}

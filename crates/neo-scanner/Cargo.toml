@@ -1,0 +1,36 @@
+[package]
+name = "neo-scanner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+httpdate.workspace = true
+neo-core = { workspace = true, features = ["db"] }
+neo-db.workspace = true
+neo-storage.workspace = true
+async-trait.workspace = true
+futures-util.workspace = true
+http.workspace = true
+image.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "fs", "rt"] }
+url.workspace = true
+chardetng.workspace = true
+encoding_rs.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+unicode-normalization.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+neo-db = { workspace = true, features = ["postgres", "testing"] }
+openlist-client.workspace = true
+percent-encoding = "2"
+tempfile.workspace = true
+tokio = { workspace = true, features = ["io-util", "test-util"] }
+webdav-client.workspace = true

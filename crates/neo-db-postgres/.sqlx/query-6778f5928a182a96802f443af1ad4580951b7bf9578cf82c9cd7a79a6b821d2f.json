@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tracks\n         SET probe = $1, duration_ms = COALESCE($2, duration_ms),\n             duration_src = CASE WHEN $2 IS NULL THEN duration_src ELSE 'probe' END\n         WHERE id = $3 AND size IS NOT DISTINCT FROM $4 AND mtime IS NOT DISTINCT FROM $5\n           AND EXISTS (SELECT 1 FROM work_locations l JOIN roots r ON r.id = l.root_id\n                       WHERE l.id = tracks.location_id AND r.source_version = $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6778f5928a182a96802f443af1ad4580951b7bf9578cf82c9cd7a79a6b821d2f"
+}

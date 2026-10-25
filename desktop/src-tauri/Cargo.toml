@@ -1,0 +1,64 @@
+[package]
+name = "kikoeru-neo-desktop"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "The kikoeru-neo desktop shell"
+
+# Tauri pulls in WebKitGTK and friends, so the shell is its own workspace:
+# the server build and its tests never compile it.
+[workspace]
+
+[lib]
+name = "kikoeru_neo_desktop"
+crate-type = ["rlib"]
+
+[[bin]]
+name = "kikoeru-neo-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Without default features, which would add PostgreSQL. The app only opens
+# its own SQLite file. Nor with embed-web: the local backend serves the
+# frontend from the copy Tauri embeds (src/web.rs).
+neo-server = { path = "../../crates/neo-server", default-features = false }
+# The roots API's request and response types, and the shell's command
+# and event types, which the frontend gets through ts-rs.
+neo-core = { path = "../../crates/neo-core" }
+anyhow = "1"
+getrandom = "0.3"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+# The same Content-Type mapping as rust-embed's in the server build.
+mime_guess = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-dialog = "2"
+# Opens the log folder in the system's file manager. Only the shell calls
+# it, so no page gets the plugin's own commands.
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
+tracing = "0.1"
+# Daily log files that delete the oldest ones themselves.
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2"
+
+[features]
+# Test builds for the WebDriver job: pick_folder returns
+# $KIKOERU_NEO_E2E_PICK_FOLDER instead of showing the system dialog.
+e2e = []
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+# Reads Info.plist the way the macOS bundler does.
+plist = "1"
+# For writing a synthetic old kikoeru database in the import test.
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite-bundled"] }
+tempfile = "3"
+tokio = { version = "1", features = ["macros"] }

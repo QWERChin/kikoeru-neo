@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE import_pending SET state = $1 WHERE user_id = $2 AND work_id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "cf6ff8556aee9a4911aa2f33c166321d45b3c73b3553116fe0267354ddccd726"
+}

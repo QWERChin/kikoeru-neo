@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT v.id AS \"id!\", v.name FROM work_vas wv JOIN vas v ON v.id = wv.va_id\n           WHERE wv.work_id = $1 ORDER BY v.name, v.id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "vas",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "vas",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "525c31e91ca4dec7e37ad937f75e7f0f250c7087c3c470926485e72d7a93e425"
+}

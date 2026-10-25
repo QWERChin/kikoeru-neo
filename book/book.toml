@@ -1,0 +1,9 @@
+[book]
+title = "kikoeru-neo 设计书"
+authors = ["QWERChin"]
+language = "zh-CN"
+src = "src"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"

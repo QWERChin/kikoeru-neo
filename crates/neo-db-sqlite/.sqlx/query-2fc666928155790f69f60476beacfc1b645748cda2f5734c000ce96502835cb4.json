@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM track_analysis WHERE track_id IN\n                 (SELECT t.id FROM tracks t JOIN work_locations l ON l.id = t.location_id\n                  WHERE l.root_id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "2fc666928155790f69f60476beacfc1b645748cda2f5734c000ce96502835cb4"
+}

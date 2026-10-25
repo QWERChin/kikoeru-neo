@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id AS \"id!: i64\", rel_path FROM tracks\n           WHERE location_id = $1 AND kind = 'subtitle' AND missing_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "rel_path",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "rel_path"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "1b89317b1e2a8a15651077ffd3d6aa685350af3c8cb757895956bd13d866bf73"
+}

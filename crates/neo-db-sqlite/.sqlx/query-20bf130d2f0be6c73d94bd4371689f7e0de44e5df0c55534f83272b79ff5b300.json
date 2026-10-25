@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO tag_merges (from_id, into_id, merged_at) VALUES ($1, $2, $3)\n         ON CONFLICT (from_id) DO UPDATE SET into_id = excluded.into_id,\n             merged_at = excluded.merged_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "20bf130d2f0be6c73d94bd4371689f7e0de44e5df0c55534f83272b79ff5b300"
+}

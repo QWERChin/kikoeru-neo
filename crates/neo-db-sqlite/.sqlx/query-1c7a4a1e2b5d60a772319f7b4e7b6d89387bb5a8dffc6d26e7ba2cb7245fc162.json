@@ -1,0 +1,45 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT t.id AS \"id!\", t.name, COUNT(*) AS \"work_count!: i64\"\n           FROM tags t\n           JOIN work_tags wt ON wt.tag_id = t.id\n           JOIN works w ON w.id = wt.work_id AND w.missing_at IS NULL\n           GROUP BY t.id ORDER BY t.name, t.id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tags",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tags",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "work_count!: i64",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1c7a4a1e2b5d60a772319f7b4e7b6d89387bb5a8dffc6d26e7ba2cb7245fc162"
+}

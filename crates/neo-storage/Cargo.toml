@@ -1,0 +1,37 @@
+[package]
+name = "neo-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+http.workspace = true
+openlist-client.workspace = true
+webdav-client.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt"] }
+
+# Only the Unix code paths use rustix; Windows has its own.
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
+
+# The final path of an open handle, to check it stays under the root.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
+
+[dev-dependencies]
+axum.workspace = true
+# The fake WebDAV server of webdav-client's tests.
+httpdate.workspace = true
+percent-encoding = "2"
+serde_json.workspace = true
+tempfile.workspace = true
+proptest.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+
+# A seccomp filter that refuses openat2, as systemd's RestrictSUIDSGID= does.
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+libc = "0.2"

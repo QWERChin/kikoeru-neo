@@ -1,0 +1,37 @@
+# Prepares a GitHub-hosted Ubuntu runner for building the flake: KVM for the
+# NixOS VM checks, Nix itself and a binary cache kept in the repository's
+# Actions cache. Disk space needs no step: on 2026-10-24 every job started
+# with 86 GB free on /.
+
+name: Set up Nix
+description: Install Nix with KVM and the Magic Nix Cache on a hosted Ubuntu runner
+
+runs:
+  using: composite
+  steps:
+    # Nix sets up the build sandbox with no supplementary groups, so kvm
+    # group membership does not reach the build users. The node itself has
+    # to be world read-write for the VM checks to use KVM rather than TCG.
+    - name: Enable KVM
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+          | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+        ls -l /dev/kvm
+
+    - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      with:
+        extra_nix_config: |
+          system-features = nixos-test benchmark big-parallel kvm
+
+    # Store paths built here go to the Actions cache, so a later run (or a
+    # pull request, which can read main's cache but not write to it) fetches
+    # them instead of building. Paths from cache.nixos.org are not stored.
+    # When many jobs upload at once the cache API can throttle a job, which
+    # then stops uploading for the rest of its run but still builds.
+    - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      with:
+        use-flakehub: false
+        diagnostic-endpoint: ""

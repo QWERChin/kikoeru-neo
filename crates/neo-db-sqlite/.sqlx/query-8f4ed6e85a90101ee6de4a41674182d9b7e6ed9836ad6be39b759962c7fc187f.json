@@ -1,0 +1,148 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT t.id AS \"id!\", t.location_id, t.rel_path, t.display_path, t.kind, t.size,\n                  t.duration_ms, t.missing_at IS NOT NULL AS \"missing!: bool\", t.probe,\n                  a.track_id IS NOT NULL AS \"analyzed!: bool\",\n                  a.integrated_lufs AS \"integrated_lufs?: f64\",\n                  a.true_peak_dbtp AS \"true_peak_dbtp?: f64\"\n           FROM tracks t\n           LEFT JOIN track_analysis a\n             ON a.track_id = t.id AND a.size IS NOT DISTINCT FROM t.size\n               AND a.mtime IS NOT DISTINCT FROM t.mtime\n               AND (a.mtime IS NOT NULL OR a.analyzed_at >= $1)\n           WHERE t.work_id = $2 AND t.duplicate_of IS NULL\n           ORDER BY t.sort_key, t.id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "location_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "location_id"
+          }
+        }
+      },
+      {
+        "name": "rel_path",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "rel_path"
+          }
+        }
+      },
+      {
+        "name": "display_path",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "display_path"
+          }
+        }
+      },
+      {
+        "name": "kind",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "size",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "size"
+          }
+        }
+      },
+      {
+        "name": "duration_ms",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "duration_ms"
+          }
+        }
+      },
+      {
+        "name": "missing!: bool",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": "Expression"
+      },
+      {
+        "name": "probe",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "probe"
+          }
+        }
+      },
+      {
+        "name": "analyzed!: bool",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": "Expression"
+      },
+      {
+        "name": "integrated_lufs?: f64",
+        "ordinal": 10,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "track_analysis",
+            "name": "integrated_lufs"
+          }
+        }
+      },
+      {
+        "name": "true_peak_dbtp?: f64",
+        "ordinal": 11,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "track_analysis",
+            "name": "true_peak_dbtp"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "8f4ed6e85a90101ee6de4a41674182d9b7e6ed9836ad6be39b759962c7fc187f"
+}

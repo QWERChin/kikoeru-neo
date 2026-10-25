@@ -1,0 +1,11 @@
+{
+  "id": 122,
+  "kind": "scan",
+  "state": "queued",
+  "progress": null,
+  "message": null,
+  "result": null,
+  "queue_position": 2,
+  "created_at": 1791800100000,
+  "updated_at": 1791800100000
+}

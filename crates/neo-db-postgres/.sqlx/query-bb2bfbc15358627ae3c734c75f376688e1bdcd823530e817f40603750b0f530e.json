@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO progress_report_cursors (user_id, work_id, session_id, last_sequence)\n                   VALUES ($1, $2, $3, $4)\n                   ON CONFLICT (user_id, work_id, session_id) DO UPDATE\n                   SET last_sequence = excluded.last_sequence\n                   WHERE excluded.last_sequence > progress_report_cursors.last_sequence\n                   RETURNING last_sequence AS \"last_sequence!: i64\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "last_sequence!: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "progress_report_cursors",
+            "name": "last_sequence"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bb2bfbc15358627ae3c734c75f376688e1bdcd823530e817f40603750b0f530e"
+}

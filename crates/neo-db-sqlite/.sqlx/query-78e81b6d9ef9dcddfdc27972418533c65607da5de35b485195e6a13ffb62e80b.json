@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM favorites WHERE user_id = $1 AND work_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "78e81b6d9ef9dcddfdc27972418533c65607da5de35b485195e6a13ffb62e80b"
+}

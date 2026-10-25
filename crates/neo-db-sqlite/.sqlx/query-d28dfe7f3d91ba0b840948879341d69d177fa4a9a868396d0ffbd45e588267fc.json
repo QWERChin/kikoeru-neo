@@ -1,0 +1,28 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT missing_at IS NOT NULL AS \"missing!: bool\",\n                  EXISTS (SELECT 1 FROM work_locations\n                          WHERE work_id = works.id AND missing_at IS NULL) AS \"present!: bool\"\n           FROM works WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "missing!: bool",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      },
+      {
+        "name": "present!: bool",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d28dfe7f3d91ba0b840948879341d69d177fa4a9a868396d0ffbd45e588267fc"
+}

@@ -1,0 +1,218 @@
+# Plays the web app in Mobile Safari and as a home screen web app on the
+# iOS Simulator, against a kikoeru-neo started on the runner with a
+# synthetic library (book/src/testing.md, Chinese). It runs only by
+# hand.
+
+name: iOS Simulator
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_run:
+        description: >-
+          ID of an earlier run whose web-build artifact matches this commit's
+          frontend, to skip the frontend build
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  # Reading another run's artifact when web_run is set.
+  actions: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: web build
+    if: ${{ inputs.web_run == '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: ./.github/actions/nix
+      - name: Build the frontend
+        run: |
+          nix build .#web --out-link web-result
+          # See desktop.yml: the upload does not follow the store symlink.
+          cp -rL --no-preserve=mode web-result web-dist
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: web-build
+          path: web-dist
+          if-no-files-found: error
+          retention-days: 7
+
+  safari:
+    name: Safari on the iOS Simulator
+    needs: web
+    # Runs after the web job, or without it when web_run names an artifact.
+    if: ${{ !cancelled() && (needs.web.result == 'success' || needs.web.result == 'skipped') }}
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      SQLX_OFFLINE: "true"
+      DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-17
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      # Swift mistakes show up here, before the minutes go into Rust.
+      - name: Build the UI tests
+        timeout-minutes: 15
+        run: |
+          zip=$RUNNER_TEMP/xcodegen.zip
+          curl --fail --location --silent --show-error --retry 3 --output "$zip" \
+            https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip
+          echo "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  $zip" | shasum -a 256 -c
+          unzip -q "$zip" -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" generate --spec scripts/ios/project.yml --project scripts/ios
+          xcodebuild build-for-testing -quiet -project scripts/ios/KikoeruIOSCheck.xcodeproj \
+            -scheme SafariChecks -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/derived"
+
+      # It boots in the background while the server compiles.
+      - name: Create and boot the simulator
+        run: |
+          runtime=$(xcrun simctl list runtimes -j | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)]
+            | sort_by(.version | split(".") | map(tonumber)) | last | .identifier')
+          # With the Mac's keyboard attached, the software keyboard never
+          # shows and typing into a page field has nothing to type into.
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          udid=$(xcrun simctl create "kikoeru iPhone" "$DEVICE_TYPE" "$runtime")
+          echo "RUNTIME=$runtime" >> "$GITHUB_ENV"
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          echo "simulator $udid on $runtime"
+          nohup xcrun simctl bootstatus "$udid" -b > "$RUNNER_TEMP/boot.log" 2>&1 &
+
+      # Some runners start without the null audio device, and then media
+      # never starts playing (actions/runner-images#13668).
+      - name: Make sure there is an audio output
+        run: |
+          if system_profiler SPAudioDataType | grep -q "Output Channels:"; then
+            echo "audio output present"
+          else
+            brew install --cask blackhole-2ch
+            sudo launchctl kickstart -kp system/com.apple.audio.coreaudiod
+            sleep 3
+          fi
+          system_profiler SPAudioDataType
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: ${{ inputs.web_run == '' }}
+        with:
+          name: web-build
+          path: web/build
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: ${{ inputs.web_run != '' }}
+        with:
+          name: web-build
+          path: web/build
+          run-id: ${{ inputs.web_run }}
+          github-token: ${{ github.token }}
+
+      # The same Rust as the flake. A debug build is enough for a test
+      # server and compiles much faster than the fat-LTO release profile.
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.98.1"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          # Preserve reusable build artifacts even if a simulator check fails.
+          cache-on-failure: true
+      - name: Build the server
+        run: cargo build --locked -p neo-server --no-default-features --features embed-web
+
+      - name: Start the server on the synthetic library
+        run: |
+          scripts/desktop/fetch-ffmpeg.sh aarch64-apple-darwin
+          bin=desktop/src-tauri/binaries
+          scripts/ios/start-server.sh target/debug/kikoeru-neo \
+            "$PWD/$bin/ffmpeg-aarch64-apple-darwin" "$PWD/$bin/ffprobe-aarch64-apple-darwin" "$RUNNER_TEMP/ios"
+
+      - name: Prepare the simulator
+        run: |
+          xcrun simctl bootstatus "$UDID"
+          cat "$RUNNER_TEMP/boot.log"
+          xcrun simctl keychain "$UDID" add-root-cert "$RUNNER_TEMP/ios/certs/ca.pem"
+          # The first keyboard otherwise opens with the slide-to-type tour,
+          # which swallows typed text.
+          for key in DidShowContinuousPathIntroduction; do
+            xcrun simctl spawn "$UDID" defaults write com.apple.Preferences "$key" -bool true
+          done
+          for key in KeyboardContinuousPathEnabled KeyboardAutocorrection KeyboardPrediction KeyboardAutocapitalization; do
+            xcrun simctl spawn "$UDID" defaults write com.apple.Preferences "$key" -bool false
+          done
+          # A home screen web app runs under a system app whose bundle ID
+          # the test needs. This runtime's candidates are passed along.
+          root=$(xcrun simctl list runtimes -j | jq -r --arg id "$RUNTIME" '.runtimes[] | select(.identifier == $id) | .runtimeRoot')
+          ids=
+          for app in "$root"/Applications/*.app; do
+            id=$(plutil -extract CFBundleIdentifier raw "$app/Info.plist" 2>/dev/null || true)
+            echo "$(basename "$app") $id"
+            case $id in *[Ww]eb[Aa]pp* | *[Ww]eb[Cc]lip*) ids="$ids${ids:+,}$id" ;; esac
+          done
+          echo "WEBAPP_IDS=$ids" >> "$GITHUB_ENV"
+          echo "web app candidates: $ids"
+
+      - name: Run the checks
+        timeout-minutes: 30
+        run: |
+          set -a
+          . "$RUNNER_TEMP/ios/ios.env"
+          set +a
+          dir=$RUNNER_TEMP/ios
+          mkdir -p "$dir/out"
+          xcrun simctl io "$UDID" recordVideo --codec=h264 --force "$dir/out/screen.mp4" > "$dir/logs/record.log" 2>&1 &
+          record=$!
+          xcrun simctl spawn "$UDID" log stream --style compact --predicate \
+            'process IN {"MobileSafari", "com.apple.WebKit.WebContent", "com.apple.WebKit.GPU", "com.apple.WebKit.Networking", "mediaserverd", "mediaremoted"}' \
+            > "$dir/logs/simulator.log" 2>&1 &
+          logs=$!
+          xctestrun=$(find "$RUNNER_TEMP/derived/Build/Products" -name '*.xctestrun' | head -n 1)
+          status=0
+          # xcodebuild hands TEST_RUNNER_ variables to the tests without the prefix.
+          TEST_RUNNER_IOS_BASE_URL=$IOS_BASE_URL \
+          TEST_RUNNER_IOS_CONTROL_URL=$IOS_CONTROL_URL \
+          TEST_RUNNER_IOS_USER=$IOS_USER \
+          TEST_RUNNER_IOS_PASSWORD=$IOS_PASSWORD \
+          TEST_RUNNER_IOS_WORK_ID=$IOS_WORK_ID \
+          TEST_RUNNER_IOS_OUT_DIR=$dir/out \
+          TEST_RUNNER_IOS_WEBAPP_IDS=$WEBAPP_IDS \
+            xcodebuild test-without-building -xctestrun "$xctestrun" -destination "id=$UDID" \
+            -resultBundlePath "$dir/checks.xcresult" -test-timeouts-enabled YES || status=$?
+          kill -INT "$record" || true
+          kill "$logs" || true
+          sleep 5
+          exit "$status"
+
+      - name: Collect the results
+        if: always()
+        run: |
+          dir=$RUNNER_TEMP/ios
+          mkdir -p "$dir/out"
+          if [ -d "$dir/checks.xcresult" ]; then
+            xcrun xcresulttool export attachments --path "$dir/checks.xcresult" --output-path "$dir/out/attachments" || true
+          fi
+          cp "$dir"/logs/*.log "$dir/out/" 2>/dev/null || true
+          # What the system's Now Playing heard from Safari, for the lock
+          # screen checks the simulator cannot draw.
+          grep -E "NowPlayingInfoTitle|PlaybackState changed|Received command|MRCommandInfo|Destination app" \
+            "$dir/out/simulator.log" > "$dir/out/nowplaying.txt" 2>/dev/null || true
+          gzip -f "$dir/out/simulator.log" 2>/dev/null || true
+          if [ -f "$dir/out/report.json" ]; then
+            jq -r '.[] | [.result, .phase, .check, .detail] | @tsv' "$dir/out/report.json"
+          else
+            echo "the tests wrote no report.json"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: ios-simulator-results
+          path: ${{ runner.temp }}/ios/out
+          if-no-files-found: warn
+          retention-days: 14

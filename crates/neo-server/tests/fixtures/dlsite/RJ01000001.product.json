@@ -1,0 +1,21 @@
+[
+  {
+    "workno": "RJ01000001",
+    "product_name": "示例作品一 [示例社团] | DLsite",
+    "maker_id": "RG10001",
+    "maker_name": "示例社团",
+    "age_category": 3,
+    "regist_date": "2024-05-01 16:00:00",
+    "genres": [
+      {"id": 1, "name": "School / Academy", "search_val": "001"},
+      {"id": 497, "name": "ASMR", "search_val": "497"}
+    ],
+    "creaters": {
+      "voice_by": [
+        {"id": "1", "name": "示例声优甲"},
+        {"id": "2", "name": "示例声优乙"}
+      ]
+    },
+    "image_main": {"url": "{base}images/RJ01000001_img_main.jpg"}
+  }
+]

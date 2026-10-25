@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT w.id AS \"work_id!\", w.code, t.id AS \"track_id!\", l.rel_path AS location_path,\n                  t.rel_path, t.display_path, t.size\n           FROM works w\n           JOIN tracks t ON t.work_id = w.id\n           JOIN work_locations l ON l.id = t.location_id\n           WHERE w.cover_src = 'none' AND w.missing_at IS NULL\n             AND l.root_id = $1 AND l.missing_at IS NULL\n             AND t.kind = 'image' AND t.missing_at IS NULL\n           ORDER BY w.id, t.sort_key, t.id",
+  "describe": {
+    "columns": [
+      {
+        "name": "work_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "works",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "code",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "works",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "name": "track_id!",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "location_path",
+        "ordinal": 3,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "rel_path"
+          }
+        }
+      },
+      {
+        "name": "rel_path",
+        "ordinal": 4,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "rel_path"
+          }
+        }
+      },
+      {
+        "name": "display_path",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "display_path"
+          }
+        }
+      },
+      {
+        "name": "size",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "size"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "e2e4bf0e4cd32d1506e9f20f25972b8ff87f7c396339349d77b858e431f71951"
+}

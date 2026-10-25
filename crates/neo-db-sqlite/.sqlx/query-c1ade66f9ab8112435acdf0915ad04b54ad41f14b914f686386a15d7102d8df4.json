@@ -1,0 +1,45 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT v.id AS \"id!\", v.name, COUNT(*) AS \"work_count!: i64\"\n           FROM vas v\n           JOIN work_vas wv ON wv.va_id = v.id\n           JOIN works w ON w.id = wv.work_id AND w.missing_at IS NULL\n           GROUP BY v.id ORDER BY v.name, v.id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "vas",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "vas",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "work_count!: i64",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "c1ade66f9ab8112435acdf0915ad04b54ad41f14b914f686386a15d7102d8df4"
+}

@@ -1,0 +1,59 @@
+# Checks the server's, the desktop app's and the frontend's lockfiles against
+# the RustSec and npm advisory databases. It also runs daily, because a new
+# advisory can make an unchanged lockfile vulnerable. Advisories that cannot
+# affect kikoeru-neo are listed with a reason in .cargo/audit.toml.
+
+name: Advisories
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.lock
+      - desktop/src-tauri/Cargo.lock
+      - web/pnpm-lock.yaml
+      - .cargo/audit.toml
+      - flake.lock
+      - .github/workflows/audit.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - Cargo.lock
+      - desktop/src-tauri/Cargo.lock
+      - web/pnpm-lock.yaml
+      - .cargo/audit.toml
+      - flake.lock
+      - .github/workflows/audit.yml
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: advisories
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+
+      # Both tools come from the flake's pinned nixpkgs, so their versions
+      # move only with flake.lock. cargo audit reads .cargo/audit.toml from
+      # the working directory, which is why the desktop lockfile is passed
+      # with --file instead of running inside desktop/src-tauri.
+      - name: cargo audit
+        run: |
+          nix shell --inputs-from . nixpkgs#cargo-audit -c sh -c \
+            'cargo audit --file Cargo.lock && cargo audit --file desktop/src-tauri/Cargo.lock'
+
+      # Every package, not just --prod: web/package.json lists all of them as
+      # devDependencies, including hls.js, jassub and vidstack, which ship in
+      # the built frontend, so --prod would audit nothing.
+      - name: pnpm audit
+        if: ${{ !cancelled() }}
+        working-directory: web
+        run: nix shell --inputs-from .. nixpkgs#pnpm -c pnpm audit

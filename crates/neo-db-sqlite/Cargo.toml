@@ -1,0 +1,19 @@
+[package]
+name = "neo-db-sqlite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# The queries in crates/neo-db/queries, compiled against SQLite. neo-db
+# chooses between this crate and neo-db-postgres at run time.
+
+[features]
+testing = []
+
+[dependencies]
+neo-core = { workspace = true, features = ["db"] }
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+uuid.workspace = true

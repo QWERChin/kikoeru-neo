@@ -1,0 +1,41 @@
+{
+	"name": "kikoeru-neo-web",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"gen:types": "cd .. && cargo run --locked -q -p neo-typegen -- web/src/lib/api/types",
+		"dev": "vite dev",
+		"dev:mock": "VITE_API_MOCK=1 vite dev",
+		"build": "pnpm gen:types && vite build",
+		"build:mock": "pnpm gen:types && VITE_API_MOCK=1 vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "pnpm gen:types && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc -p src/service-worker --noEmit",
+		"test": "pnpm gen:types && vitest run",
+		"e2e": "playwright test",
+		"e2e:mock": "playwright test -c playwright.mock.config.ts"
+	},
+	"devDependencies": {
+		"@playwright/test": "1.63.0",
+		"@sveltejs/adapter-static": "^4.0.0",
+		"@sveltejs/kit": "^3.0.1",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"@tailwindcss/vite": "^4.3.3",
+		"@tauri-apps/api": "2.12.3",
+		"@types/node": "^22.20.5",
+		"hls.js": "1.7.3",
+		"jassub": "2.5.16",
+		"svelte": "^5.57.2",
+		"svelte-check": "^4.7.6",
+		"tailwindcss": "^4.3.3",
+		"typescript": "^6.0.3",
+		"vidstack": "1.15.7",
+		"vite": "^8.3.4",
+		"vitest": "^5.0.3"
+	},
+	"imports": {
+		"#lib": "./src/lib/index.ts",
+		"#lib/*": "./src/lib/*"
+	}
+}

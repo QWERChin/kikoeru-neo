@@ -1,0 +1,27 @@
+[package]
+name = "neo-db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+# PostgreSQL as well as SQLite. The desktop app leaves it off.
+postgres = ["dep:neo-db-postgres", "neo-core/postgres"]
+# `testing`: a database on either backend for other crates' tests.
+testing = ["dep:tempfile", "neo-db-sqlite/testing", "neo-db-postgres?/testing"]
+
+[dependencies]
+neo-core = { workspace = true, features = ["db"] }
+neo-db-postgres = { workspace = true, optional = true }
+neo-db-sqlite.workspace = true
+sqlx.workspace = true
+tempfile = { workspace = true, optional = true }
+
+[dev-dependencies]
+# Its own tests use the testing module, on PostgreSQL too.
+neo-db = { path = ".", features = ["postgres", "testing"] }
+# The PostgreSQL tests open their throwaway databases directly.
+sqlx = { workspace = true, features = ["postgres"] }
+serde_json.workspace = true
+tempfile.workspace = true
+tokio.workspace = true

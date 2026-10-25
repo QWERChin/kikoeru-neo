@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT source_version FROM roots WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "source_version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "source_version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9f4bda24ddb7e34c89851273967a41f4c17c2d06b25d2c7d5f4f6a259a0679ae"
+}

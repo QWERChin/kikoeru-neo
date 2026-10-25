@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE tasks\n             SET state = $1, result = $2, message = $3, updated_at = $4,\n                 progress = CASE WHEN $5 = 'done' THEN 1.0 ELSE progress END\n             WHERE id = $6 AND state IN ('queued', 'running')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "0bf7239f06286d7fc2d83fa080a1591240d8bd322a59512c29ec0a0325cb6dc3"
+}

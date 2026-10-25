@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(\n             (SELECT id FROM tracks\n              WHERE work_id = $1\n                AND kind IN ('audio', 'video')\n                AND missing_at IS NULL\n                AND duplicate_of IS NULL\n                AND substr(display_path, 1, length($2)) = $2\n                AND substr(display_path, length($2) + 1) NOT LIKE '%/%'\n              ORDER BY sort_key DESC, id DESC\n              LIMIT 1)\n             = COALESCE((SELECT k.id FROM tracks d JOIN tracks k ON k.id = d.duplicate_of\n                         WHERE d.id = $3 AND k.rel_path = d.rel_path\n                           AND k.size = d.size AND k.missing_at IS NULL), $3),\n             FALSE) AS \"last!: bool\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "last!: bool",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "43381844b001ee6d7d859df11be88811ed72623b8313880d182cde12008f7a0c"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT cover_version FROM works WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "cover_version",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "works",
+            "name": "cover_version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "793bdbb37ca455cd00c9684d119e76708f6410333b35832c1975899dafaaad75"
+}

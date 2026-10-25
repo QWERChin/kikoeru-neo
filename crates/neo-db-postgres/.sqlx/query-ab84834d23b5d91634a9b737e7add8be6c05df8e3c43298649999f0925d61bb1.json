@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE works SET title = $1, release_date = $2, nsfw = $3, circle_id = $4,\n             metadata_src = 'manual', updated_at = $5\n         WHERE id = $6",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Bool",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ab84834d23b5d91634a9b737e7add8be6c05df8e3c43298649999f0925d61bb1"
+}

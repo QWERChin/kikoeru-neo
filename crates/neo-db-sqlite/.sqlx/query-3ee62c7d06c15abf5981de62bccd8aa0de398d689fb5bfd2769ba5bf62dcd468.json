@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO root_settings (root_id, kind, settings, created_at, updated_at)\n         VALUES ($1, $2, $3, $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "3ee62c7d06c15abf5981de62bccd8aa0de398d689fb5bfd2769ba5bf62dcd468"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO tag_aliases (alias, tag_id) SELECT name, $1 FROM tags WHERE id = $2\n         ON CONFLICT (alias) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "447c861258f77954add1e6f6c193f170c4fc174088ada18f76baa0843693be64"
+}

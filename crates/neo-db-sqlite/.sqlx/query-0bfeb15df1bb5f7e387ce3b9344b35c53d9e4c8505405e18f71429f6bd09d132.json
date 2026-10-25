@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM root_settings WHERE root_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "0bfeb15df1bb5f7e387ce3b9344b35c53d9e4c8505405e18f71429f6bd09d132"
+}

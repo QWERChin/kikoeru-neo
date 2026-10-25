@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE play_progress SET track_id = $1 WHERE track_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6e4674bd2691edbb4729281c2778a2c39f33ea4497b199154e71cf521d4d61be"
+}

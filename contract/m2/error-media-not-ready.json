@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "media_not_ready",
+    "message": "这个文件还在转码，请稍后再试"
+  }
+}

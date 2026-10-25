@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "coverage_notes", "findings", "retracted"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "Two to four sentences in Simplified Chinese on the correctness of the reviewed code."
+    },
+    "coverage_notes": {
+      "type": "string",
+      "description": "Simplified Chinese. What was read in full, what was only skimmed, and what could not be verified statically."
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "verdict", "lens", "title", "file", "line", "related_locations", "description", "trigger_scenario", "evidence", "suggested_fix", "suggested_test"],
+        "properties": {
+          "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+          "verdict": {"type": "string", "enum": ["confirmed", "uncertain"]},
+          "lens": {"type": "string", "enum": ["correctness", "contract", "auth", "data"]},
+          "title": {"type": "string", "description": "One line in Simplified Chinese that states the wrong behaviour."},
+          "file": {"type": "string", "description": "Repo-relative path of the root cause."},
+          "line": {"type": "integer", "description": "Line of the root cause in the current working tree."},
+          "related_locations": {"type": "array", "items": {"type": "string"}, "description": "Other path:line locations involved."},
+          "description": {"type": "string", "description": "Simplified Chinese. What the code does, what it should do, and why the difference matters."},
+          "trigger_scenario": {"type": "string", "description": "Simplified Chinese. Concrete inputs, state, and ordering of events, and what the user or operator observes."},
+          "evidence": {"type": "string", "description": "Code excerpts or a reasoning chain with path:line references that prove the trigger is reachable. For an uncertain finding, also what is unverified."},
+          "suggested_fix": {"type": "string", "description": "Simplified Chinese. The direction of the fix, not a full patch."},
+          "suggested_test": {"type": "string", "description": "Simplified Chinese. A test that fails before the fix."}
+        }
+      }
+    },
+    "retracted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "file", "line", "reason"],
+        "properties": {
+          "title": {"type": "string"},
+          "file": {"type": "string"},
+          "line": {"type": "integer"},
+          "reason": {"type": "string", "description": "One sentence in Simplified Chinese on why verification refuted it."}
+        }
+      }
+    }
+  }
+}

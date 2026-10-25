@@ -1,0 +1,57 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT l.root_id, r.display_name AS root_name, l.display_path AS path,\n                  l.missing_at IS NOT NULL AS \"missing!: bool\"\n           FROM work_locations l JOIN roots r ON r.id = l.root_id\n           WHERE l.work_id = $1\n           ORDER BY l.missing_at IS NOT NULL, l.root_id, l.display_path, l.id",
+  "describe": {
+    "columns": [
+      {
+        "name": "root_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "root_id"
+          }
+        }
+      },
+      {
+        "name": "root_name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "name": "path",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "display_path"
+          }
+        }
+      },
+      {
+        "name": "missing!: bool",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d09c6bd7969d668d209187c3736b8d4820049cacc361fe0ea111fc2c1de3d20a"
+}

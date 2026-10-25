@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT last_scan_end_at AS \"end: i64\", last_scan_at AS \"ok: i64\"\n           FROM roots WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "end: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "last_scan_end_at"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "ok: i64",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "last_scan_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "24671de517ba259341904253bb9782070abdc8fe5d0053e9f018a341ed890495"
+}

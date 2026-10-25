@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO user_settings (user_id, normalize_loudness, target_lufs, accent,\n                                    seek_back_seconds, seek_forward_seconds, updated_at)\n         VALUES ($1, $2, $3, $4, $5, $6, $7)\n         ON CONFLICT (user_id) DO UPDATE SET\n             normalize_loudness = excluded.normalize_loudness,\n             target_lufs = excluded.target_lufs,\n             accent = excluded.accent,\n             seek_back_seconds = excluded.seek_back_seconds,\n             seek_forward_seconds = excluded.seek_forward_seconds,\n             updated_at = excluded.updated_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "d0d0ac00ab79ec23039e19accc4c9b6f101847bbf7ac18e8502c2644c45234cf"
+}

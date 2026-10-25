@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tag_aliases SET tag_id = $1 WHERE tag_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "18f5cf1851ebd61f39f8dd4e387b2f5ce9f0e462b3593c150b9346de2c5ccd76"
+}

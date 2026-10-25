@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT r.source_version, t.size, t.mtime FROM tracks t\n             JOIN work_locations l ON l.id = t.location_id JOIN roots r ON r.id = l.root_id\n             WHERE t.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "source_version",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "source_version"
+          }
+        }
+      },
+      {
+        "name": "size",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "size"
+          }
+        }
+      },
+      {
+        "name": "mtime",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "mtime"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "d016085326a3519f36a96a5ce2552e86de592b3adad55958ce7096a1135402c0"
+}

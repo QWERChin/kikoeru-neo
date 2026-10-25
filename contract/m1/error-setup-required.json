@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "setup_required",
+    "message": "还没有管理员账号，请在服务器上运行 kikoeru-neo user create --admin <名字>"
+  }
+}

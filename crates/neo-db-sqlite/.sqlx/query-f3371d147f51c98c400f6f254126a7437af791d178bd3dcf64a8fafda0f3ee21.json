@@ -1,0 +1,33 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT cover_src <> 'none' AS \"has_cover!: bool\", cover_version FROM works WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "has_cover!: bool",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      },
+      {
+        "name": "cover_version",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "works",
+            "name": "cover_version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "f3371d147f51c98c400f6f254126a7437af791d178bd3dcf64a8fafda0f3ee21"
+}

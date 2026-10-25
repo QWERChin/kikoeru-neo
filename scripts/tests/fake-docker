@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# A stand-in for docker in docker-migrate.bats. It records every call in
+# $FAKE_LOG and answers from FAKE_* variables. It never starts anything.
+set -euo pipefail
+# The script under test may run with a bare PATH. This stand-in still
+# needs the test's tools.
+PATH=${FAKE_PATH:-$PATH}
+printf '%s\n' "$*" >>"$FAKE_LOG"
+
+case $1 in
+  inspect)
+    template=""
+    for ((i = 1; i <= $#; i++)); do
+      if [ "${!i}" = -f ]; then
+        j=$((i + 1))
+        template=${!j}
+      fi
+    done
+    case $template in
+      *State.Running*) echo "${FAKE_RUNNING:-false}" ;;
+      # Like docker, a {{range}} with println ends each item with a newline,
+      # and inspect adds one more, so the output ends with an empty line.
+      *Config.Env*) printf '%s\n\n' "${FAKE_ENV:-PATH=/usr/bin}" | tr '|' '\n' ;;
+      *Config.WorkingDir*) echo "${FAKE_WORKDIR:-/usr/src/kikoeru}" ;;
+      *.Mounts*.Type*)
+        [ -z "${FAKE_MOUNTS_FULL:-}" ] || printf '%s\n' "$FAKE_MOUNTS_FULL" | tr '|' '\n'
+        echo
+        ;;
+      *.Mounts*.Destination*)
+        [ -z "${FAKE_MOUNTS:-}" ] || printf '%s\n' "$FAKE_MOUNTS" | tr '|' '\n'
+        echo
+        ;;
+      *) echo "fake-docker: unknown template $template" >&2; exit 2 ;;
+    esac
+    ;;
+  volume)
+    case $2 in
+      inspect)
+        if [ "$3" = -f ]; then
+          # The label the volume was created with, unless the test says the
+          # volume belongs to someone else.
+          if [ "${FAKE_VOLUME_FOREIGN:-false}" = true ]; then
+            echo
+          else
+            cat "$FAKE_LOG.label"
+          fi
+        else
+          [ "${FAKE_VOLUME_EXISTS:-false}" = true ]
+        fi
+        ;;
+      create)
+        [ "$3" = --label ] && printf '%s\n' "${4#*=}" >"$FAKE_LOG.label"
+        echo "${*: -1}"
+        ;;
+      rm) echo "$3" ;;
+    esac
+    ;;
+  cp)
+    from=${2#*:}
+    for missing in ${FAKE_MISSING:-}; do
+      if [ "$from" = "$missing" ]; then
+        echo "Error response from daemon: Could not find the file $from in container" >&2
+        exit 1
+      fi
+    done
+    for link in ${FAKE_LINKS:-}; do
+      if [ "$from" = "$link" ]; then
+        ln -s "${FAKE_LINK_TARGET:-/etc/hostname}" "$3"
+        exit 0
+      fi
+    done
+    case $from in
+      */config.json) printf '%s\n' "${FAKE_OLD_CONFIG-}" >"$3" ;;
+      */covers | */art) mkdir -p "$3" && echo cover >"$3/RJ123456_img_main.jpg" ;;
+      /legacy-store)
+        mkdir -p "$3"
+        echo data >"$3/db.sqlite3"
+        echo cover >"$3/RJ123456_img_main.jpg"
+        chmod -R a-w "$3"
+        ;;
+      *) echo data >"$3" ;;
+    esac
+    ;;
+  run)
+    destinations=()
+    shared_copy=""
+    for ((i = 2; i <= $#; i++)); do
+      if [ "${!i}" = -v ]; then
+        j=$((i + 1))
+        mount=${!j}
+        dest=${mount#*:}
+        dest=${dest%%:*}
+        for previous in "${destinations[@]}"; do
+          if [ "$dest" = "$previous" ]; then
+            echo "Error response from daemon: Duplicate mount point: $dest" >&2
+            exit 125
+          fi
+        done
+        destinations+=("$dest")
+        if [ "$dest" = /legacy-store ]; then
+          shared_copy=${mount%%:*}
+        fi
+      fi
+    done
+    if [ -n "$shared_copy" ]; then
+      [ "$(cat "$shared_copy/db.sqlite3")" = data ]
+      [ "$(cat "$shared_copy/db.sqlite3-journal")" = data ]
+      [ "$(cat "$shared_copy/db.sqlite3-wal")" = data ]
+      [ "$(cat "$shared_copy/RJ123456_img_main.jpg")" = cover ]
+    fi
+    args=" $* "
+    case $args in
+      *" /bin/cat "*) printf '%s\n' "${FAKE_CONFIG:-[[roots]]|id = \"old\"}" | tr '|' '\n' ;;
+      *" /bin/rm "*) ;;
+      *" /bin/true "*) ;;
+      *" /bin/test "*) [ "${FAKE_ROOT_READABLE:-true}" = true ] ;;
+      *" migrate "*) exit "${FAKE_MIGRATE_EXIT:-0}" ;;
+      *) echo "fake-docker: unexpected run $*" >&2; exit 2 ;;
+    esac
+    ;;
+  *)
+    echo "fake-docker: unexpected command $1" >&2
+    exit 2
+    ;;
+esac

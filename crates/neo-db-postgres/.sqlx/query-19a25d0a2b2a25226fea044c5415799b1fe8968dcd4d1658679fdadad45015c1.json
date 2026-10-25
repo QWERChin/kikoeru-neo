@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO play_progress (user_id, work_id, track_id, position_ms, group_path, updated_at)\n             VALUES ($1, $2, COALESCE((SELECT k.id FROM tracks d JOIN tracks k ON k.id = d.duplicate_of\n                                       WHERE d.id = $3 AND k.rel_path = d.rel_path\n                                         AND k.size = d.size AND k.missing_at IS NULL), $3), $4, $5, $6)\n             ON CONFLICT (user_id, work_id) DO UPDATE SET\n               track_id = excluded.track_id,\n               position_ms = excluded.position_ms,\n               group_path = excluded.group_path,\n               updated_at = excluded.updated_at,\n               replaying = play_progress.finished_at IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "19a25d0a2b2a25226fea044c5415799b1fe8968dcd4d1658679fdadad45015c1"
+}

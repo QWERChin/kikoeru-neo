@@ -1,0 +1,4 @@
+allowBuilds:
+  lfa-ponyfill: false
+minimumReleaseAgeExclude:
+  - '@tauri-apps/api@2.12.3'

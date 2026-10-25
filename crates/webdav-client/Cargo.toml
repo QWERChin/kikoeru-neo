@@ -1,0 +1,25 @@
+[package]
+name = "webdav-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Read-only WebDAV client: PROPFIND listings and ranged GETs"
+
+# Like openlist-client, this crate knows nothing about kikoeru-neo, so
+# neo-storage can stay a thin adapter over it.
+[dependencies]
+bytes.workspace = true
+futures-util.workspace = true
+http.workspace = true
+httpdate.workspace = true
+percent-encoding = "2"
+quick-xml = "0.42"
+reqwest.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net"] }

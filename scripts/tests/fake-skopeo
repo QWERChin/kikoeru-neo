@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# A stand-in for skopeo in ghcr-release.bats. It records every call in
+# $FAKE_LOG and keeps a registry in $FAKE_REGISTRY, one file per tag
+# holding that tag's image config. An archive's config is the archive file
+# itself. It never talks to a real registry.
+set -euo pipefail
+# The script under test may run with a bare PATH. This stand-in still
+# needs the test's tools.
+PATH=${FAKE_PATH:-$PATH}
+printf '%s\n' "$*" >>"$FAKE_LOG"
+
+command="" refs=()
+for arg in "$@"; do
+  case $arg in
+    login | inspect | copy) [ -n "$command" ] || command=$arg ;;
+    docker://* | docker-archive:*) refs+=("$arg") ;;
+  esac
+done
+
+# The registry file for docker://REPO:TAG.
+entry() {
+  printf '%s/%s' "$FAKE_REGISTRY" "${1##*:}"
+}
+
+case $command in
+  login) cat >"$FAKE_LOG.password" ;;
+  inspect)
+    ref=${refs[0]}
+    case $ref in
+      docker-archive:*) cat "${ref#docker-archive:}" ;;
+      *)
+        if [ "${FAKE_INSPECT:-}" = denied ]; then
+          echo 'level=fatal msg="Requesting bearer token: received unexpected HTTP status: 403 Forbidden"' >&2
+          exit 1
+        fi
+        if [ -f "$(entry "$ref")" ]; then
+          cat "$(entry "$ref")"
+        elif [ "${FAKE_INSPECT:-}" = name-unknown ]; then
+          echo 'level=fatal msg="reading manifest: name unknown: repository name not known to registry"' >&2
+          exit 1
+        else
+          echo "level=fatal msg=\"reading manifest ${ref##*:} in ghcr.io/x/y: manifest unknown\"" >&2
+          exit 1
+        fi
+        ;;
+    esac
+    ;;
+  copy)
+    to=${refs[1]}
+    [ "${FAKE_FAIL_TAG:-}" != "${to##*:}" ] || exit 1
+    cp "${refs[0]#docker-archive:}" "$(entry "$to")"
+    ;;
+  *)
+    echo "fake-skopeo: unexpected call $*" >&2
+    exit 2
+    ;;
+esac

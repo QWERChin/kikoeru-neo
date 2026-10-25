@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM tasks\n             WHERE state IN ('done', 'failed', 'cancelled', 'interrupted')\n               AND (updated_at < $1\n                    OR id NOT IN (SELECT id FROM tasks\n                                  WHERE state IN ('done', 'failed', 'cancelled', 'interrupted')\n                                  ORDER BY updated_at DESC, id DESC\n                                  LIMIT $2))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "942ce1472ab162cbe196ee4a8c5ceb796e74b532ebe16693d6f3395fb00bb356"
+}

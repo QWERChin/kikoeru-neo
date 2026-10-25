@@ -1,0 +1,20 @@
+{
+  "works": [
+    {
+      "id": 15,
+      "code": "RJ01000015",
+      "title": "示例作品四",
+      "missing_at": 1791700000000
+    }
+  ],
+  "locations": [
+    {
+      "id": 31,
+      "work_id": 12,
+      "code": "RJ01234567",
+      "root_id": "cloud",
+      "path": "示例目录/RJ01234567",
+      "missing_at": 1791700000000
+    }
+  ]
+}

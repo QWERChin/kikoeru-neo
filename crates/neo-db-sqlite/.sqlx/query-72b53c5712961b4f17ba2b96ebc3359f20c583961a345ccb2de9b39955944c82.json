@@ -1,0 +1,76 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id AS \"id!\", rel_path, size, mtime, missing_at IS NOT NULL AS \"missing!: bool\",\n                  probe IS NOT NULL AS \"probed!: bool\"\n           FROM tracks WHERE location_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "rel_path",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "rel_path"
+          }
+        }
+      },
+      {
+        "name": "size",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "size"
+          }
+        }
+      },
+      {
+        "name": "mtime",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "mtime"
+          }
+        }
+      },
+      {
+        "name": "missing!: bool",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": "Expression"
+      },
+      {
+        "name": "probed!: bool",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "72b53c5712961b4f17ba2b96ebc3359f20c583961a345ccb2de9b39955944c82"
+}

@@ -1,0 +1,4 @@
+# The SQLite twin reads DATABASE_URL. A separate variable lets one
+# `cargo check` see both databases, each crate checked against its own.
+[common]
+database-url-var = "PG_DATABASE_URL"

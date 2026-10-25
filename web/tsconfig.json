@@ -1,0 +1,10 @@
+{
+	"extends": "$app/tsconfig",
+	"compilerOptions": {
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"resolveJsonModule": true
+	},
+	"include": ["src", "e2e", "e2e-mock", "vite.config.ts", "playwright.config.ts", "playwright.mock.config.ts"],
+	"exclude": ["src/service-worker"]
+}

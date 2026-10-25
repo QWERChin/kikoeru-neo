@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id AS \"id!\", listing_hash AS \"hash!\" FROM work_locations\n           WHERE root_id = $1 AND listing_hash IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "hash!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "listing_hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "7365185356bb59e8b454d620d39ca4074990ec719a78853fa1a1139d549e11c6"
+}

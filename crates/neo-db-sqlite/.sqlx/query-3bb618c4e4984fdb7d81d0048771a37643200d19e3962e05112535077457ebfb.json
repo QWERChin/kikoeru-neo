@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO roots (id, display_name) VALUES ($1, $2)\n         ON CONFLICT (id) DO UPDATE SET display_name = excluded.display_name, status = 'unknown'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "3bb618c4e4984fdb7d81d0048771a37643200d19e3962e05112535077457ebfb"
+}

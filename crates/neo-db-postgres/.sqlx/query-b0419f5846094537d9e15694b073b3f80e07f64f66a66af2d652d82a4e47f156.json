@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tasks SET state = 'cancelled', result = NULL, message = NULL, updated_at = $1\n             WHERE id = $2 AND state = 'queued'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b0419f5846094537d9e15694b073b3f80e07f64f66a66af2d652d82a4e47f156"
+}

@@ -1,0 +1,16 @@
+{
+	"name": "kikoeru",
+	"short_name": "kikoeru",
+	"description": "自托管的有声剧和有声书播放器",
+	"lang": "zh-CN",
+	"start_url": "/library",
+	"scope": "/",
+	"display": "standalone",
+	"theme_color": "#f2f2f7",
+	"background_color": "#f2f2f7",
+	"icons": [
+		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+		{ "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+	]
+}

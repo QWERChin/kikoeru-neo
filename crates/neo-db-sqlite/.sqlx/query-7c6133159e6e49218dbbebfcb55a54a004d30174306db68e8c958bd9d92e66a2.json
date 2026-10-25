@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT into_id FROM tag_merges WHERE from_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "into_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tag_merges",
+            "name": "into_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7c6133159e6e49218dbbebfcb55a54a004d30174306db68e8c958bd9d92e66a2"
+}

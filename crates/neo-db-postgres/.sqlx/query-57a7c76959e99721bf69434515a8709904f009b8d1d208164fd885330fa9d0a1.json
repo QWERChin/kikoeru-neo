@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (SELECT 1 FROM works w\n                              WHERE id = $1 AND missing_at IS NOT NULL\n                                AND NOT EXISTS (SELECT 1 FROM work_locations l\n                                                WHERE l.work_id = w.id AND l.missing_at IS NULL))\n               AS \"e!: bool\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "e!: bool",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "57a7c76959e99721bf69434515a8709904f009b8d1d208164fd885330fa9d0a1"
+}

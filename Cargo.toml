@@ -1,0 +1,93 @@
+[workspace]
+members = [
+  "crates/neo-core",
+  "crates/neo-db",
+  "crates/neo-db-postgres",
+  "crates/neo-db-sqlite",
+  "crates/neo-media",
+  "crates/neo-scanner",
+  "crates/neo-server",
+  "crates/neo-storage",
+  "crates/neo-typegen",
+  "crates/webdav-client",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+[workspace.dependencies]
+neo-core = { path = "crates/neo-core" }
+neo-db = { path = "crates/neo-db" }
+neo-db-postgres = { path = "crates/neo-db-postgres" }
+neo-db-sqlite = { path = "crates/neo-db-sqlite" }
+neo-scanner = { path = "crates/neo-scanner" }
+neo-media = { path = "crates/neo-media" }
+neo-storage = { path = "crates/neo-storage" }
+openlist-client = { git = "https://github.com/chinrw/openlist-client", rev = "2cc58a4fdd6e8fb035d98c880bf68bfd9bf4a1e6" }
+webdav-client = { path = "crates/webdav-client" }
+anyhow = "1"
+argon2 = "0.6"
+async-trait = "0.1"
+axum = { version = "0.8", features = ["macros"] }
+bytes = "1"
+bytesize = "2"
+chardetng = "0.1"
+encoding_rs = "0.8"
+clap = { version = "4", features = ["derive"] }
+crc32fast = "1"
+futures-util = "0.3"
+http = "1"
+httpdate = "1"
+# Only the decoders covers need: DLsite main images are JPEG, and some
+# libraries keep PNG or WebP covers.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+humantime = "2"
+jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto"] }
+# The ring TLS backend builds without cmake and shares the TLS stack used
+# by the pinned OpenList client.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "socks", "stream"] }
+rpassword = "7"
+rustix = { version = "1", features = ["fs", "process"] }
+rust-embed = { version = "8", features = ["mime-guess"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite-bundled", "macros", "migrate"] }
+tempfile = "3"
+# Property tests for path handling; std only, no persistence of failures.
+proptest = { version = "1", default-features = false, features = ["std"] }
+thiserror = "2"
+time = { version = "0.3", features = ["parsing"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "fs", "time"] }
+tokio-util = "0.7"
+toml = "1"
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.7", features = ["compression-gzip", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+ts-rs = "12.0.1"
+unicode-normalization = "0.1"
+url = "2"
+notify = "8"
+uuid = { version = "1", features = ["v5"] }
+
+# Password hashing is far too slow without optimisation, which makes the
+# login tests crawl in debug builds.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
+
+# Fat LTO with one codegen unit lets the optimiser see the whole program,
+# which drops duplicated generic code that thin LTO keeps, for a slower final
+# link. See the build rationale in book/src/deployment.md (Chinese).
+# The symbol table goes too: a panic still
+# logs its message and file:line, and those do not come from it.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"

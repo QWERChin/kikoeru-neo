@@ -1,0 +1,12 @@
+[
+  {
+    "id": "va-sample-1",
+    "name": "示例声优甲",
+    "work_count": 30
+  },
+  {
+    "id": "va-sample-2",
+    "name": "示例声优乙",
+    "work_count": 2
+  }
+]

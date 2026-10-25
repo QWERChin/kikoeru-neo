@@ -1,0 +1,77 @@
+{
+  "items": [
+    {
+      "id": 12,
+      "code": "RJ01234567",
+      "title": "示例作品一",
+      "circle": {
+        "id": 3,
+        "name": "示例社团"
+      },
+      "release_date": "2024-05-01",
+      "nsfw": false,
+      "rate_average": 4.62,
+      "rate_count": 318,
+      "has_cover": true,
+      "cover_version": 1,
+      "missing": false,
+      "favorite": true,
+      "progress": {
+        "track_id": 345,
+        "position_ms": 812000,
+        "track_duration_ms": 1995000,
+        "finished": true,
+        "replaying": true,
+        "resumable": true,
+        "group_path": "mp3/SE有"
+      },
+      "my_rating": 5
+    },
+    {
+      "id": 13,
+      "code": "RJ00123456",
+      "title": "示例作品二",
+      "circle": {
+        "id": 4,
+        "name": "另一个社团"
+      },
+      "release_date": null,
+      "nsfw": true,
+      "rate_average": null,
+      "rate_count": null,
+      "has_cover": false,
+      "cover_version": 0,
+      "missing": false,
+      "favorite": false,
+      "progress": {
+        "track_id": null,
+        "position_ms": 101000,
+        "track_duration_ms": null,
+        "finished": false,
+        "replaying": false,
+        "resumable": false,
+        "group_path": null
+      },
+      "my_rating": null
+    },
+    {
+      "id": 14,
+      "code": "BJ01234567",
+      "title": "示例作品三",
+      "circle": null,
+      "release_date": "2023-11-20",
+      "nsfw": false,
+      "rate_average": 3.9,
+      "rate_count": 12,
+      "has_cover": true,
+      "cover_version": 2,
+      "missing": false,
+      "favorite": false,
+      "progress": null,
+      "my_rating": null
+    }
+  ],
+  "page": 1,
+  "page_size": 40,
+  "total": 3
+}

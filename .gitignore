@@ -1,0 +1,14 @@
+/result*
+/book/book
+/target
+/web/node_modules
+/web/build
+/dev-data
+/web/src/lib/api/types
+/web/.svelte-kit
+/web/test-results
+/web/playwright-report
+__pycache__/
+/.claude/worktrees
+/handoff/
+CLAUDE.local.md

@@ -1,0 +1,106 @@
+# Runs the x86_64-linux flake checks on GitHub-hosted runners, one per job.
+# Book, user-guide, contributor-guide, README and agent-rule-only changes
+# are skipped. Build the book locally for documentation changes.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["book/**", "docs/**", "AGENTS.md", "README.md", "README.zh-CN.md", "CONTRIBUTING.md", "CONTRIBUTING.zh-CN.md"]
+  pull_request:
+    branches: [main]
+    paths-ignore: ["book/**", "docs/**", "AGENTS.md", "README.md", "README.zh-CN.md", "CONTRIBUTING.md", "CONTRIBUTING.zh-CN.md"]
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: >-
+          Checks to run again even though their results are cached, separated
+          by spaces (for example "e2e docker"). Use it to see whether a check
+          still passes, since a normal run reuses the cached result.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  # A new push to a pull request makes the old run useless. Runs on main are
+  # kept, because each one checks a different merge result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  list:
+    name: list checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      checks: ${{ steps.list.outputs.checks }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      # The list comes from the flake, so a new check runs here without
+      # editing CI.
+      - id: list
+        run: |
+          checks=$(nix eval --json .#checks.x86_64-linux --apply builtins.attrNames)
+          echo "checks=$checks" >> "$GITHUB_OUTPUT"
+          echo "$checks"
+
+  check:
+    name: ${{ matrix.check }}
+    needs: list
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        check: ${{ fromJSON(needs.list.outputs.checks) }}
+    steps:
+      # Check the pull request head rather than GitHub's synthetic merge
+      # commit, so the source matches the contributor's checked revision.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: ./.github/actions/nix
+
+      - name: Build
+        env:
+          CHECK: ${{ matrix.check }}
+        run: nix build --no-link --print-build-logs ".#checks.x86_64-linux.$CHECK"
+
+      # `nix build --rebuild` runs a check again and compares the result with
+      # the cached one. Only the run matters here, so a result that differs
+      # (the e2e check's screenshots, say) still counts as a pass.
+      - name: Rebuild
+        if: contains(format(' {0} ', inputs.rebuild), format(' {0} ', matrix.check))
+        env:
+          CHECK: ${{ matrix.check }}
+        run: |
+          if nix build --rebuild --no-link --print-build-logs ".#checks.x86_64-linux.$CHECK" 2> "$RUNNER_TEMP/rebuild.log"; then
+            echo "$CHECK: passed again" >> "$GITHUB_STEP_SUMMARY"
+          elif grep -q "may not be deterministic" "$RUNNER_TEMP/rebuild.log"; then
+            echo "$CHECK: passed again (its output differs from the cached one)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            grep -v 'tower_http::trace' "$RUNNER_TEMP/rebuild.log" | tail -n 300
+            exit 1
+          fi
+
+  # One status for the whole run, which a branch rule can require without
+  # listing every check by name.
+  all:
+    name: flake checks
+    needs: [list, check]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          LIST: ${{ needs.list.result }}
+          CHECKS: ${{ needs.check.result }}
+        run: |
+          echo "list: $LIST, checks: $CHECKS"
+          [ "$LIST" = success ] && [ "$CHECKS" = success ]

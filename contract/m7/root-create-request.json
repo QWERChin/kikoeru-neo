@@ -1,0 +1,15 @@
+{
+  "id": "cloud",
+  "display_name": "云端作品",
+  "settings": {
+    "type": "openlist",
+    "url": "https://openlist.example.lan",
+    "base_path": "/cloud/云端作品",
+    "username": "kikoeru",
+    "password": "sample password",
+    "list_concurrency": null,
+    "link_rate": null,
+    "auto_scan_interval": 21600
+  },
+  "skip_check": false
+}

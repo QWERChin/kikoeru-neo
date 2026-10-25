@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT w.id AS \"id!\" FROM works w\n           WHERE w.metadata_src = 'none' AND w.missing_at IS NULL\n             AND EXISTS (SELECT 1 FROM work_locations l\n                         WHERE l.work_id = w.id AND l.root_id = $1 AND l.missing_at IS NULL)\n           ORDER BY w.id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "works",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "384654917e1d923ab7258bd940e24c704b41c33e0b86c927796e63e710109494"
+}

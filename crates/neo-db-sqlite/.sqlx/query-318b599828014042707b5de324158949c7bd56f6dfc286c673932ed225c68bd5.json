@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT normalize_loudness AS \"normalize_loudness: bool\", target_lufs, accent,\n                  seek_back_seconds, seek_forward_seconds\n           FROM user_settings WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "normalize_loudness: bool",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "user_settings",
+            "name": "normalize_loudness"
+          }
+        }
+      },
+      {
+        "name": "target_lufs",
+        "ordinal": 1,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "user_settings",
+            "name": "target_lufs"
+          }
+        }
+      },
+      {
+        "name": "accent",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "user_settings",
+            "name": "accent"
+          }
+        }
+      },
+      {
+        "name": "seek_back_seconds",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "user_settings",
+            "name": "seek_back_seconds"
+          }
+        }
+      },
+      {
+        "name": "seek_forward_seconds",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "user_settings",
+            "name": "seek_forward_seconds"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "318b599828014042707b5de324158949c7bd56f6dfc286c673932ed225c68bd5"
+}

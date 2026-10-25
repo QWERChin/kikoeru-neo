@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE tracks SET missing_at = $1\n         WHERE missing_at IS NULL\n           AND location_id IN (SELECT id FROM work_locations WHERE root_id = $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "5e286e19626df705a7e04ce5e1f1ba53510a99f367c602f2b2188f39136d897d"
+}

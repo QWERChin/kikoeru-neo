@@ -1,0 +1,77 @@
+[package]
+name = "neo-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "kikoeru-neo"
+path = "src/main.rs"
+
+[features]
+default = ["postgres"]
+# Lets the server use PostgreSQL instead of its SQLite file.
+postgres = ["neo-core/postgres", "neo-db/postgres"]
+# Compiles web/build into the binary and serves it at the site root. Off by
+# default so backend work does not need a frontend build. The Nix package
+# turns it on after building the frontend.
+embed-web = ["dep:rust-embed"]
+
+[dependencies]
+neo-core = { workspace = true, features = ["db"] }
+neo-db.workspace = true
+neo-media.workspace = true
+neo-scanner.workspace = true
+neo-storage.workspace = true
+openlist-client.workspace = true
+webdav-client.workspace = true
+anyhow.workspace = true
+argon2.workspace = true
+axum.workspace = true
+bytesize.workspace = true
+clap.workspace = true
+futures-util.workspace = true
+getrandom = "0.4"
+humantime.workspace = true
+jsonwebtoken.workspace = true
+rpassword.workspace = true
+rust-embed = { workspace = true, optional = true }
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "io-util"] }
+tokio-util = { workspace = true, features = ["io", "rt"] }
+image.workspace = true
+toml.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+url.workspace = true
+# Old folder names are compared in NFC, because a Mac writes NFD.
+unicode-normalization.workspace = true
+notify.workspace = true
+# The import copies the old database into a private temporary directory.
+tempfile.workspace = true
+# A merge target hard-linked to the old database has to be refused, and
+# std exposes file identity only on Unix.
+same-file = "1"
+
+# Only the Unix code paths use rustix; Windows has its own.
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
+
+[dev-dependencies]
+neo-db = { workspace = true, features = ["testing"] }
+async-trait.workspace = true
+# The fake WebDAV server of webdav-client's tests.
+percent-encoding = "2"
+httpdate.workspace = true
+bytes.workspace = true
+zip = { version = "9", default-features = false }
+http-body-util = "0.1"
+# Unpacks the gzipped frontend files in tests/web.rs.
+flate2 = "1"
+proptest.workspace = true
+tokio = { workspace = true, features = ["process", "io-util"] }
+tower.workspace = true

@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT t.id AS \"id!\", t.location_id, l.root_id, t.rel_path, t.size,\n                  t.missing_at IS NOT NULL AS \"missing!: bool\", t.duplicate_of\n           FROM tracks t JOIN work_locations l ON l.id = t.location_id\n           WHERE t.work_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "location_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "location_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "root_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "root_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "rel_path",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "rel_path"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "size",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "size"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "missing!: bool",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "duplicate_of",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "duplicate_of"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      null,
+      true
+    ]
+  },
+  "hash": "7dc29f36a1e7657d16c9cee9318747bfd4626fa1c94572b7a774cff98ebc66e8"
+}

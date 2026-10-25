@@ -1,0 +1,57 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT r.display_name, r.status, r.last_scan_at,\n                  (SELECT COUNT(DISTINCT l.work_id) FROM work_locations l\n                   WHERE l.root_id = r.id AND l.missing_at IS NULL) AS \"work_count!: i64\"\n           FROM roots r WHERE r.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "display_name",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "name": "status",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "name": "last_scan_at",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "last_scan_at"
+          }
+        }
+      },
+      {
+        "name": "work_count!: i64",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "836993d7a874308d3027603c1bbad78de5b363c022037440569a3a842a17c7c8"
+}

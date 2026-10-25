@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(MAX(id), 0) AS \"n!: i64\" FROM (\n                       SELECT id FROM tags\n                       UNION ALL SELECT from_id FROM tag_merges\n                       UNION ALL SELECT into_id FROM tag_merges\n                   ) AS used",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!: i64",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4dce7678deb92e6db7db38ebe98d700a89be784791f340d30d66306252d10246"
+}

@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "too_old",
+    "message": "/srv/old/sqlite/db.sqlite3 does not look like a kikoeru database: it comes from a kikoeru version older than 0.6.14; upgrade the old server to 0.6.14 or later, let it start once, and import again"
+  }
+}

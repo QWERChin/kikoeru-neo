@@ -1,0 +1,1 @@
+ALTER TABLE roots ADD COLUMN source_version BIGINT NOT NULL DEFAULT 0;

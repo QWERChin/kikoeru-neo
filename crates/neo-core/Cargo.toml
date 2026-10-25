@@ -1,0 +1,35 @@
+[package]
+name = "neo-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+# The database layer pulls in SQLx and SQLite. neo-typegen only needs the
+# DTOs, so it builds without it.
+db = ["dep:serde_json", "dep:sqlx", "dep:thiserror", "dep:tokio", "dep:uuid"]
+# PostgreSQL as well as SQLite, and copying between the two. The desktop
+# app leaves it off and only ever opens SQLite. TLS uses the system's CA
+# store, so sslmode=verify-full works against a server with a private CA.
+postgres = ["db", "dep:futures-util", "dep:whoami", "sqlx/postgres", "sqlx/tls-rustls-ring-native-roots"]
+
+[dependencies]
+futures-util = { workspace = true, optional = true }
+serde.workspace = true
+serde_json = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
+# Not used here. sqlx-postgres takes the default user name from whoami
+# but builds it without `std`, which makes it "anonymous" on every system.
+# Turning `std` on gives the OS user, as libpq does, so a URL without
+# `user=` works with peer authentication.
+whoami = { version = "2", default-features = false, features = ["std"], optional = true }
+ts-rs.workspace = true
+
+[dev-dependencies]
+sqlx = { workspace = true, features = ["postgres"] }
+serde_json.workspace = true
+tempfile.workspace = true
+tokio.workspace = true

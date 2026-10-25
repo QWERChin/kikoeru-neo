@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO favorites (user_id, work_id, created_at) VALUES ($1, $2, $3)\n                 ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "fd35f2a1d5e785aa48d64c59b1a828268e0a85fe097d72d3acf34e55163ac6a4"
+}

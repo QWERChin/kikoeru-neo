@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO work_vas (work_id, va_id) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "5b10c1f202a6d7fcf97e23c3c2ad64f9786f27c0a7aef047276fbcac6d613f90"
+}

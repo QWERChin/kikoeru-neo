@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT work_id AS \"work_id!: i64\", display_path, kind FROM tracks WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "work_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "work_id"
+          }
+        }
+      },
+      {
+        "name": "display_path",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "display_path"
+          }
+        }
+      },
+      {
+        "name": "kind",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "kind"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8df0eea370fcc50d104dc83c3055632e898995e66ebf6831f64e9ec44213e9c1"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "nas",
+  "display_name": "NAS",
+  "settings": {
+    "type": "webdav",
+    "url": "https://nas.example.lan/dav",
+    "base_path": "/音声",
+    "username": "kikoeru",
+    "password": "sample password",
+    "list_concurrency": null,
+    "auto_scan_interval": 21600
+  },
+  "skip_check": false
+}

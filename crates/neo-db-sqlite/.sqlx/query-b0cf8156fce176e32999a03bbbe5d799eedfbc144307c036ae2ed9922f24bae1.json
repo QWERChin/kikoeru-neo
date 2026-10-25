@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM users WHERE name = $1 AND NOT (\n                 is_admin = TRUE AND (SELECT count(*) FROM users WHERE is_admin = TRUE) <= 1\n             )",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "b0cf8156fce176e32999a03bbbe5d799eedfbc144307c036ae2ed9922f24bae1"
+}

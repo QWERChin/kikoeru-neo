@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO server_settings (id, metadata_proxy, updated_at) VALUES (1, $1, $2)\n         ON CONFLICT (id) DO UPDATE SET\n             metadata_proxy = excluded.metadata_proxy,\n             updated_at = excluded.updated_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3e655030c9810eed42ad5a459fd59e246c473b8fceb1e519600d34504c1cb328"
+}

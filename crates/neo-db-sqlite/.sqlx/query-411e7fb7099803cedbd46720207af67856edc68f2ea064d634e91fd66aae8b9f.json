@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO play_progress\n               (user_id, work_id, track_id, position_ms, group_path, finished_at, replaying, updated_at)\n             VALUES ($1, $2, COALESCE((SELECT k.id FROM tracks d JOIN tracks k ON k.id = d.duplicate_of\n                                       WHERE d.id = $3 AND k.rel_path = d.rel_path\n                                         AND k.size = d.size AND k.missing_at IS NULL), $3),\n                     0, $4, $5, FALSE, $6)\n             ON CONFLICT (user_id, work_id) DO UPDATE SET\n               position_ms = CASE WHEN play_progress.track_id IS NOT DISTINCT FROM excluded.track_id\n                                  THEN play_progress.position_ms ELSE 0 END,\n               track_id = excluded.track_id,\n               group_path = excluded.group_path,\n               finished_at = excluded.finished_at,\n               replaying = FALSE,\n               updated_at = excluded.updated_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "411e7fb7099803cedbd46720207af67856edc68f2ea064d634e91fd66aae8b9f"
+}

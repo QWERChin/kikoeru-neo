@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO tracks (work_id, location_id, rel_path, display_path, sort_key,\n                               kind, size, mtime, duration_ms, duration_src)\n           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id AS \"id!\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ce688c16ff1be596bd806b1dd68c28826a7bc3978929b53faf7b47127fa2c0f9"
+}

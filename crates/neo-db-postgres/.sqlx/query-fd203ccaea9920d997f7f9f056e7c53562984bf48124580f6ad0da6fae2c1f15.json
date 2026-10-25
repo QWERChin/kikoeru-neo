@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE work_locations SET missing_at = $1, listing_hash = NULL\n         WHERE root_id = $2 AND missing_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fd203ccaea9920d997f7f9f056e7c53562984bf48124580f6ad0da6fae2c1f15"
+}

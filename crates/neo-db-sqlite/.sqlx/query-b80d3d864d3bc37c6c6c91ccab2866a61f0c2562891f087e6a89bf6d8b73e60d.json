@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE roots SET display_name = $1 WHERE id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "b80d3d864d3bc37c6c6c91ccab2866a61f0c2562891f087e6a89bf6d8b73e60d"
+}

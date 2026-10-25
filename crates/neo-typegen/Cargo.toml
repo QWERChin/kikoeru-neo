@@ -1,0 +1,9 @@
+[package]
+name = "neo-typegen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+neo-core.workspace = true
+ts-rs.workspace = true

@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO import_pending\n                           (user_id, work_id, source, durations, state)\n                         VALUES ($1, $2, $3, $4, $5)\n                         ON CONFLICT (user_id, work_id) DO UPDATE SET\n                           source = excluded.source, durations = excluded.durations,\n                           state = excluded.state",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4b0106a8200cb016c703cabc4f92eacbfda0a3fd090156ff1c5b7568bc579110"
+}

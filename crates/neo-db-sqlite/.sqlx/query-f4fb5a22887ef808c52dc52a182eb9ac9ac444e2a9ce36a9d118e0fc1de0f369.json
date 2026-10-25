@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO legacy_user_state\n           (user_id, code, favorite_at, has_review, rating, review_text, review_progress,\n            review_at, progress_at, position_ms, finished_at, pending_source,\n            pending_durations, pending_state)\n         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)\n         ON CONFLICT (user_id, code) DO UPDATE SET\n           favorite_at = excluded.favorite_at, has_review = excluded.has_review,\n           rating = excluded.rating, review_text = excluded.review_text,\n           review_progress = excluded.review_progress, review_at = excluded.review_at,\n           progress_at = excluded.progress_at, position_ms = excluded.position_ms,\n           finished_at = excluded.finished_at, pending_source = excluded.pending_source,\n           pending_durations = excluded.pending_durations,\n           pending_state = excluded.pending_state",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 14
+    },
+    "nullable": []
+  },
+  "hash": "f4fb5a22887ef808c52dc52a182eb9ac9ac444e2a9ce36a9d118e0fc1de0f369"
+}

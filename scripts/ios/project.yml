@@ -1,0 +1,44 @@
+# XcodeGen spec for the iOS Simulator checks (book/src/testing.md, "iOS
+# 模拟器"). The UI tests drive Mobile Safari and SpringBoard, not an app of
+# ours. Xcode still wants a host app for a UI test target, so Host is an
+# empty one. Generated with `xcodegen generate --spec scripts/ios/project.yml`.
+name: KikoeruIOSCheck
+options:
+  deploymentTarget:
+    iOS: "26.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    GENERATE_INFOPLIST_FILE: YES
+    # Simulator builds only, signed ad hoc.
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+targets:
+  Host:
+    type: application
+    platform: iOS
+    sources: [Host]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.qwerchin.kikoeruneo.ioscheck.host
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+  SafariChecks:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: Host
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.qwerchin.kikoeruneo.ioscheck.uitests
+        TEST_TARGET_NAME: Host
+schemes:
+  SafariChecks:
+    build:
+      targets:
+        Host: all
+        SafariChecks: [test]
+    test:
+      targets: [SafariChecks]

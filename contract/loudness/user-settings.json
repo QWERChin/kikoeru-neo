@@ -1,0 +1,7 @@
+{
+  "normalize_loudness": true,
+  "target_lufs": -16,
+  "accent": "teal",
+  "seek_back_seconds": 10,
+  "seek_forward_seconds": 45
+}

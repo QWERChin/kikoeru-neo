@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT integrated_lufs, true_peak_dbtp FROM track_analysis\n         WHERE track_id = $1 AND size IS NOT DISTINCT FROM $2 AND mtime IS NOT DISTINCT FROM $3\n           AND (mtime IS NOT NULL OR analyzed_at >= $4)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "integrated_lufs",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "track_analysis",
+            "name": "integrated_lufs"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "true_peak_dbtp",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "track_analysis",
+            "name": "true_peak_dbtp"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "875490bb9cb05d45258ed58f1ed7deabc7f39175cfbf4b78cb9d6392f76c9d97"
+}

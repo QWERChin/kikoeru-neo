@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT metadata_proxy FROM server_settings WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "metadata_proxy",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_settings",
+            "name": "metadata_proxy"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "600ca383eabe8eaade23bbf222a1edf53330451aa8b98df3d5eaa18278ab3d9e"
+}

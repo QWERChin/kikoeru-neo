@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# A stand-in for the Codex CLI in codex-review.bats. It records each call's
+# arguments and prompt under $FAKE_DIR, lists itself as a Codex review in
+# the fake $KCR_PROC_DIR while it runs, works in the -C directory, optionally sleeps for $FAKE_SLEEP seconds
+# and runs $FAKE_HOOK, and writes $FAKE_RESPONSE (or a fixed review) to the
+# -o path.
+set -euo pipefail
+# Concurrent calls are what some tests look for, so name each call by PID.
+n=$$
+printf '%s\n' "$*" >>"$FAKE_DIR/calls"
+# Show up in the fake /proc the way a real review shows up in /proc.
+mkdir -p "$KCR_PROC_DIR/$n"
+printf '%s\0' /nix/store/x-codex/bin/codex-raw exec - >"$KCR_PROC_DIR/$n/cmdline"
+printf '%s\0' HOME=/home/x "KCR_REVIEW_RUNNING=$KCR_REVIEW_RUNNING" >"$KCR_PROC_DIR/$n/environ"
+ln -s "$PWD" "$KCR_PROC_DIR/$n/cwd"
+trap 'rm -rf "$KCR_PROC_DIR/$n"' EXIT
+cat >"$FAKE_DIR/prompt.$n"
+printf 'start %s %s\n' "$n" "$(date +%s.%N)" >>"$FAKE_DIR/times"
+out=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -o) out=$2; shift ;;
+    -C) cd "$2"; shift ;;
+  esac
+  shift
+done
+# Sleep in the background so a TERM stops this stand-in at once, as it
+# would stop Codex.
+sleep "${FAKE_SLEEP:-0}" &
+sleeper=$!
+trap 'kill "$sleeper" 2>/dev/null; rm -rf "$KCR_PROC_DIR/$n"; exit 143' TERM
+wait "$sleeper"
+if [[ -n ${FAKE_HOOK:-} ]]; then
+  bash -c "$FAKE_HOOK"
+fi
+if [[ -n $out ]]; then
+  if [[ -n ${FAKE_RESPONSE:-} ]]; then
+    cp "$FAKE_RESPONSE" "$out"
+  else
+    cat >"$out" <<'JSON'
+{"summary":"示例总结。","coverage_notes":"示例覆盖说明。",
+ "findings":[{"severity":"P1","verdict":"confirmed","lens":"correctness","title":"示例发现",
+   "file":"src/lib.rs","line":3,"related_locations":[],"description":"示例描述。",
+   "trigger_scenario":"示例场景。","evidence":"示例证据。","suggested_fix":"示例修复。",
+   "suggested_test":"示例测试。"}],
+ "retracted":[{"title":"撤回的示例","file":"src/lib.rs","line":1,"reason":"示例理由。"}]}
+JSON
+  fi
+fi
+printf 'end %s %s\n' "$n" "$(date +%s.%N)" >>"$FAKE_DIR/times"
+exit "${FAKE_STATUS:-0}"

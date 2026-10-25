@@ -1,0 +1,57 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id AS \"id!\", work_id, rel_path, missing_at IS NOT NULL AS \"missing!: bool\"\n           FROM work_locations WHERE root_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "work_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "work_id"
+          }
+        }
+      },
+      {
+        "name": "rel_path",
+        "ordinal": 2,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "rel_path"
+          }
+        }
+      },
+      {
+        "name": "missing!: bool",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "01fac156bebec463972e61d1b1462018241bcfa7f7ac78887bd3738e9d6a8c52"
+}

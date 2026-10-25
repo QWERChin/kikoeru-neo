@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE play_progress SET track_id = $1, group_path = $2\n         WHERE user_id = $3 AND work_id = $4 AND track_id IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a2b8b741f0fc617a941ca4f202fbbc99e2e378fd10f6fc879429fd5b519f9684"
+}

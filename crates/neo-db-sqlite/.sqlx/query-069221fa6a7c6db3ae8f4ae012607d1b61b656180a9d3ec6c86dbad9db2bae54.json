@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM work_tags WHERE work_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "069221fa6a7c6db3ae8f4ae012607d1b61b656180a9d3ec6c86dbad9db2bae54"
+}

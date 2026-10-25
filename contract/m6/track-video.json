@@ -1,0 +1,19 @@
+{
+  "id": 201,
+  "path": "映像/本編.mkv",
+  "kind": "video",
+  "size": 734003200,
+  "duration_ms": 1520000,
+  "has_subtitle": true,
+  "subtitle_formats": [
+    "vtt",
+    "ass"
+  ],
+  "missing": false,
+  "video": {
+    "codec": "h264",
+    "width": 1920,
+    "height": 1080
+  },
+  "loudness": null
+}

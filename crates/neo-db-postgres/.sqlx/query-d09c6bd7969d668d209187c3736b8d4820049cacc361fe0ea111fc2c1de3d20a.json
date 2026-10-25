@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT l.root_id, r.display_name AS root_name, l.display_path AS path,\n                  l.missing_at IS NOT NULL AS \"missing!: bool\"\n           FROM work_locations l JOIN roots r ON r.id = l.root_id\n           WHERE l.work_id = $1\n           ORDER BY l.missing_at IS NOT NULL, l.root_id, l.display_path, l.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "root_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "root_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "root_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "roots",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "display_path"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "missing!: bool",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "d09c6bd7969d668d209187c3736b8d4820049cacc361fe0ea111fc2c1de3d20a"
+}

@@ -1,0 +1,86 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT l.id AS \"id!\", l.work_id, w.code, l.root_id, l.display_path,\n                  l.missing_at AS \"missing_at!\"\n           FROM work_locations l JOIN works w ON w.id = l.work_id\n           WHERE l.missing_at IS NOT NULL AND w.missing_at IS NULL\n           ORDER BY l.missing_at DESC, l.id DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "work_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "work_id"
+          }
+        }
+      },
+      {
+        "name": "code",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "works",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "name": "root_id",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "root_id"
+          }
+        }
+      },
+      {
+        "name": "display_path",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "display_path"
+          }
+        }
+      },
+      {
+        "name": "missing_at!",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "missing_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "18efaf6fcf5a6e35ca4ab87bf08c8d7dac3c64330fdb6dbd4471fc48669661a6"
+}

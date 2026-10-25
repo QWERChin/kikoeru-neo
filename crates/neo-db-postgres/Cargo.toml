@@ -1,0 +1,20 @@
+[package]
+name = "neo-db-postgres"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# The queries in crates/neo-db/queries, compiled against PostgreSQL. Its
+# sqlx.toml reads the database URL from PG_DATABASE_URL, and its .sqlx/
+# holds the query cache, so the SQLite twin's cache never collides with it.
+
+[features]
+testing = []
+
+[dependencies]
+neo-core = { workspace = true, features = ["postgres"] }
+serde_json.workspace = true
+sqlx = { workspace = true, features = ["postgres", "sqlx-toml"] }
+thiserror.workspace = true
+tokio.workspace = true
+uuid.workspace = true

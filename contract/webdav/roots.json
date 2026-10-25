@@ -1,0 +1,22 @@
+[
+  {
+    "id": "nas",
+    "display_name": "NAS",
+    "kind": "webdav",
+    "status": "ok",
+    "last_scan_at": 1791699000000,
+    "work_count": 212,
+    "source": "db",
+    "settings": {
+      "type": "webdav",
+      "url": "https://nas.example.lan/dav",
+      "base_path": "/音声",
+      "username": "kikoeru",
+      "password_set": true,
+      "list_concurrency": null,
+      "auto_scan_interval": 21600
+    },
+    "next_scan_at": 1791720600000,
+    "watching": false
+  }
+]

@@ -1,0 +1,40 @@
+[
+  {
+    "id": "local",
+    "display_name": "本地作品",
+    "kind": "local",
+    "status": "ok",
+    "last_scan_at": 1791699000000,
+    "work_count": 120,
+    "source": "config",
+    "settings": {
+      "type": "local",
+      "path": "/srv/media/works",
+      "watch": true,
+      "auto_scan_interval": 86400
+    },
+    "next_scan_at": 1791785400000,
+    "watching": true
+  },
+  {
+    "id": "cloud",
+    "display_name": "云端作品",
+    "kind": "openlist",
+    "status": "unknown",
+    "last_scan_at": null,
+    "work_count": 48,
+    "source": "db",
+    "settings": {
+      "type": "openlist",
+      "url": "https://openlist.example.lan",
+      "base_path": "/cloud/云端作品",
+      "username": "kikoeru",
+      "password_set": true,
+      "list_concurrency": null,
+      "link_rate": null,
+      "auto_scan_interval": 21600
+    },
+    "next_scan_at": 1791720600000,
+    "watching": false
+  }
+]

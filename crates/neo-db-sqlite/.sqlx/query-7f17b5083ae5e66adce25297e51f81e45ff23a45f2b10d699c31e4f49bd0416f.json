@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM play_progress WHERE work_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "7f17b5083ae5e66adce25297e51f81e45ff23a45f2b10d699c31e4f49bd0416f"
+}

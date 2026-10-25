@@ -1,0 +1,170 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT user_id, favorite_at, has_review AS \"has_review: bool\", rating, review_text,\n                  review_progress, review_at, progress_at, position_ms, finished_at, pending_source,\n                  pending_durations, pending_state\n           FROM legacy_user_state WHERE code = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "user_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "name": "favorite_at",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "favorite_at"
+          }
+        }
+      },
+      {
+        "name": "has_review: bool",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "has_review"
+          }
+        }
+      },
+      {
+        "name": "rating",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "rating"
+          }
+        }
+      },
+      {
+        "name": "review_text",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "review_text"
+          }
+        }
+      },
+      {
+        "name": "review_progress",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "review_progress"
+          }
+        }
+      },
+      {
+        "name": "review_at",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "review_at"
+          }
+        }
+      },
+      {
+        "name": "progress_at",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "progress_at"
+          }
+        }
+      },
+      {
+        "name": "position_ms",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "position_ms"
+          }
+        }
+      },
+      {
+        "name": "finished_at",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "finished_at"
+          }
+        }
+      },
+      {
+        "name": "pending_source",
+        "ordinal": 10,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "pending_source"
+          }
+        }
+      },
+      {
+        "name": "pending_durations",
+        "ordinal": 11,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "pending_durations"
+          }
+        }
+      },
+      {
+        "name": "pending_state",
+        "ordinal": 12,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "legacy_user_state",
+            "name": "pending_state"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "ebcf6284916ff3655f2785a316132d6dc5f735ef3cda22964bc328c027e39f8d"
+}

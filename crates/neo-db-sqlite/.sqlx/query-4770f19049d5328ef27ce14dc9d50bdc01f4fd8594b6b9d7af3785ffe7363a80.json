@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE play_progress SET track_id = NULL\n             WHERE track_id IN (SELECT id FROM tracks WHERE location_id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "4770f19049d5328ef27ce14dc9d50bdc01f4fd8594b6b9d7af3785ffe7363a80"
+}

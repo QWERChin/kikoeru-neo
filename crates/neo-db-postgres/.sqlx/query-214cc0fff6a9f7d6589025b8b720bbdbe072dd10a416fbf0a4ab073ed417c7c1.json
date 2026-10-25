@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tasks SET progress = $1, updated_at = $2 WHERE id = $3 AND state = 'running'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "214cc0fff6a9f7d6589025b8b720bbdbe072dd10a416fbf0a4ab073ed417c7c1"
+}

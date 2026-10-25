@@ -1,0 +1,11 @@
+{
+  "id": 88,
+  "kind": "transcode",
+  "state": "done",
+  "progress": 1,
+  "message": null,
+  "result": { "url": "/api/tracks/104/playable", "mime_type": "audio/mp4" },
+  "queue_position": null,
+  "created_at": 1791700000000,
+  "updated_at": 1791700064000
+}

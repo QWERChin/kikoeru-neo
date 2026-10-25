@@ -1,0 +1,15 @@
+# Advisories that `cargo audit` reports but that cannot affect kikoeru-neo
+# (book/src/deployment.md, "安全"). Each entry says why.
+[advisories]
+ignore = [
+    # rsa: timing side channel in RSA private-key operations (Marvin). It is
+    # compiled in only because jsonwebtoken's rust_crypto feature always
+    # pulls it, with no feature to leave RSA out. neo-server signs and
+    # verifies HS256 only (token.rs), so no RSA key is ever loaded.
+    "RUSTSEC-2023-0071",
+    # crypto-bigint 0.5: timing variability in operations meant to be
+    # constant-time. The same rust_crypto feature pulls it through p256 and
+    # p384 for ES256 and ES384, and elliptic-curve 0.13 cannot move to the
+    # fixed 0.7. No EC key is ever loaded, for the same HS256-only reason.
+    "RUSTSEC-2026-0387",
+]

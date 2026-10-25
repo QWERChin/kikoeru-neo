@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE works SET title = $1, circle_id = $2, release_date = $3, nsfw = $4, dl_count = $5,\n             price = $6, rate_average = $7, rate_count = $8, extra = $9,\n             metadata_src = $10, updated_at = $11\n         WHERE id = $12",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Text",
+        "Bool",
+        "Int8",
+        "Int8",
+        "Float8",
+        "Int8",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8078512dcf15f138b039f65e75778fd6726154f597f78059b1b059ee46f8c025"
+}

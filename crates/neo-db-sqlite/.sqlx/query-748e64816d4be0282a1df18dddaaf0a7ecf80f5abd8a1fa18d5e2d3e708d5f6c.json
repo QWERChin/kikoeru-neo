@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE tasks SET state = 'running', progress = 0, updated_at = $1\n             WHERE id = $2 AND state IN ('queued', 'running')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "748e64816d4be0282a1df18dddaaf0a7ecf80f5abd8a1fa18d5e2d3e708d5f6c"
+}

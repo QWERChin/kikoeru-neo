@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE root_settings SET kind = $1, settings = $2, updated_at = $3 WHERE root_id = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "cebcb694e4131e77111b396ce9ceddc655982d14f8a1ec7a3955e7c85e17920c"
+}

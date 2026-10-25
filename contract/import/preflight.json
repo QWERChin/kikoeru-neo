@@ -1,0 +1,180 @@
+{
+  "refusal": [
+    "works 123456 and 234567 share the directory \"RJ123456\" in root voice"
+  ],
+  "report": {
+    "import_pending": {
+      "pending": 2,
+      "unmatched": 0
+    },
+    "issues": [
+      {
+        "at": "t_work id=234567",
+        "reason": "no cover RJ234567_img_main.jpg"
+      }
+    ],
+    "last_migration": "20241110142802_custom_work_meta.js",
+    "old_roots": [
+      {
+        "base_path": null,
+        "kind": "local",
+        "name": "Old",
+        "old_path": "/usr/src/kikoeru/VoiceWork",
+        "path": {
+          "origin": "config:rootFolders",
+          "path": "/srv/voice"
+        },
+        "url": null,
+        "username": null,
+        "sample": {
+          "checked": 2,
+          "found": 0
+        }
+      }
+    ],
+    "preflight": {
+      "backslash_dirs": false,
+      "codes": {
+        "RJ/6": 2
+      },
+      "dir_code_differs": 0,
+      "dir_code_nonstandard": 0,
+      "duplicate_locations": 0,
+      "histories_valid": 2,
+      "queue_paths_in_memo": 1,
+      "review_history_overlap": 1,
+      "review_progress": {
+        "marked": 1,
+        "null": 1
+      },
+      "root_folders": {
+        "Old": 2
+      },
+      "track_durations": 0,
+      "unparsable_dirs": 0
+    },
+    "source": {
+      "config": {
+        "origin": "default",
+        "path": "/srv/old/config/config.json"
+      },
+      "covers": {
+        "origin": "default",
+        "path": "/srv/old/covers"
+      },
+      "db": {
+        "origin": "default",
+        "path": "/srv/old/sqlite/db.sqlite3"
+      },
+      "settings": {
+        "auth": null,
+        "coverFolderDir": "/usr/src/kikoeru/covers",
+        "coverUseDefaultPath": null,
+        "databaseFolderDir": "/usr/src/kikoeru/sqlite",
+        "dbUseDefaultPath": true,
+        "rootFolders": [
+          {
+            "basePath": null,
+            "name": "Old",
+            "path": "/usr/src/kikoeru/VoiceWork",
+            "type": "local",
+            "url": null,
+            "username": null
+          }
+        ],
+        "sqliteType": null,
+        "version": "0.6.14"
+      }
+    },
+    "tables": {
+      "r_tag_work": {
+        "imported": 0,
+        "merged": 0,
+        "skipped": 0,
+        "source": 0
+      },
+      "r_va_work": {
+        "imported": 0,
+        "merged": 0,
+        "skipped": 0,
+        "source": 0
+      },
+      "t_circle": {
+        "imported": 1,
+        "merged": 0,
+        "skipped": 0,
+        "source": 1
+      },
+      "t_play_histroy": {
+        "imported": 2,
+        "merged": 0,
+        "skipped": 0,
+        "source": 2
+      },
+      "t_review": {
+        "imported": 2,
+        "merged": 0,
+        "skipped": 0,
+        "source": 2
+      },
+      "t_tag": {
+        "imported": 0,
+        "merged": 0,
+        "skipped": 0,
+        "source": 0
+      },
+      "t_translate_task": {
+        "imported": 0,
+        "merged": 0,
+        "skipped": 0,
+        "source": 0
+      },
+      "t_user": {
+        "imported": 2,
+        "merged": 0,
+        "skipped": 0,
+        "source": 2
+      },
+      "t_va": {
+        "imported": 0,
+        "merged": 0,
+        "skipped": 0,
+        "source": 0
+      },
+      "t_work": {
+        "imported": 2,
+        "merged": 0,
+        "skipped": 0,
+        "source": 2
+      }
+    },
+    "work_ids": [
+      [
+        123456,
+        1
+      ],
+      [
+        234567,
+        2
+      ]
+    ],
+    "written": {
+      "circles": 1,
+      "covers": 1,
+      "favorites": 1,
+      "import_pending": 2,
+      "legacy_reviews": 2,
+      "play_progress": 2,
+      "play_progress_finished": 0,
+      "roots": 1,
+      "tag_aliases": 0,
+      "tags": 0,
+      "users": 2,
+      "vas": 0,
+      "work_locations": 2,
+      "work_tags": 0,
+      "work_vas": 0,
+      "works": 2
+    }
+  }
+}

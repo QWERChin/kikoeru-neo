@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "kikoeru-neo",
+  "version": "0.1.0",
+  "identifier": "io.github.qwerchin.kikoeru-neo",
+  "build": {
+    "frontendDist": "../../web/build"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": ["icons/icon.png", "icons/icon.ico"]
+  }
+}

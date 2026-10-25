@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE tracks SET duplicate_of = NULL\n             WHERE duplicate_of IN (SELECT id FROM tracks WHERE location_id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "300311b87d65ee8a0bab1475d3656a9a966007b31f1a24c1d6cb200b9792979c"
+}

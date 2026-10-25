@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tasks\n             SET queue_rank = (SELECT COALESCE(MIN(queue_rank), 0) - 1 FROM tasks\n                               WHERE state = 'queued' AND kind = 'scan')\n             WHERE id = $1 AND state = 'queued' AND kind = 'scan'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "196baed78bee29644f5d4ed1d419d7f84e7fed8af55da6f8574118d62b1eec0a"
+}

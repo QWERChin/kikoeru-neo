@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE roots SET status = $1, last_scan_at = COALESCE($2, last_scan_at) WHERE id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1f2f0213edf95235419d8e8e6e6174f94946303c486c2b26c1dd45ad1b4064fd"
+}

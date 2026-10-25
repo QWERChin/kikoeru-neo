@@ -1,0 +1,11 @@
+{
+  "id": 88,
+  "kind": "transcode",
+  "state": "running",
+  "progress": 0.42,
+  "message": null,
+  "result": null,
+  "queue_position": null,
+  "created_at": 1791700000000,
+  "updated_at": 1791700021000
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT location_id, rel_path FROM tracks\n           WHERE work_id = $1 AND kind = 'subtitle' AND missing_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "location_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "location_id"
+          }
+        }
+      },
+      {
+        "name": "rel_path",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "tracks",
+            "name": "rel_path"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "516e9c7d600fb7b04b420dfbb24144fd2ffb12b711e782634d31f51fbe97b99c"
+}

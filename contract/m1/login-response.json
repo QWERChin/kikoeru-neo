@@ -1,0 +1,9 @@
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9.example.signature",
+  "expires_at": 1794227000000,
+  "user": {
+    "id": 1,
+    "name": "admin",
+    "is_admin": true
+  }
+}

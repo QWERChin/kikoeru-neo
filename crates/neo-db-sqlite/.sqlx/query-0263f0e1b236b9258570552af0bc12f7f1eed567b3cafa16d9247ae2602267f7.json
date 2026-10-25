@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE work_locations SET listed_at = $1, listing_hash = $2 WHERE id = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "0263f0e1b236b9258570552af0bc12f7f1eed567b3cafa16d9247ae2602267f7"
+}

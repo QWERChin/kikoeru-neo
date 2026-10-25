@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT EXISTS (SELECT 1 FROM works w\n                              WHERE id = $1 AND missing_at IS NOT NULL\n                                AND NOT EXISTS (SELECT 1 FROM work_locations l\n                                                WHERE l.work_id = w.id AND l.missing_at IS NULL))\n               AS \"e!: bool\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "e!: bool",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "57a7c76959e99721bf69434515a8709904f009b8d1d208164fd885330fa9d0a1"
+}

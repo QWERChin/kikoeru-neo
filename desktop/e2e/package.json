@@ -1,0 +1,12 @@
+{
+	"name": "kikoeru-neo-desktop-e2e",
+	"private": true,
+	"type": "module",
+	"description": "Drives the desktop app through tauri-driver (book/src/testing.md)",
+	"scripts": {
+		"test": "node run.mjs"
+	},
+	"devDependencies": {
+		"webdriverio": "10.0.2"
+	}
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM import_pending WHERE user_id = $1 AND work_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "904a38bae5afe9669f77f9aa25dd3182d6f0f4b7b6d863bfb1abfdf9d1114bf6"
+}

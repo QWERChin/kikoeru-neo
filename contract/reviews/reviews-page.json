@@ -1,0 +1,53 @@
+{
+  "items": [
+    {
+      "id": 12,
+      "code": "RJ01234567",
+      "title": "示例作品一",
+      "circle": {
+        "id": 3,
+        "name": "示例社团"
+      },
+      "release_date": "2024-05-01",
+      "nsfw": false,
+      "rate_average": 4.62,
+      "rate_count": 318,
+      "has_cover": true,
+      "cover_version": 1,
+      "missing": false,
+      "favorite": true,
+      "progress": {
+        "track_id": 345,
+        "position_ms": 812000,
+        "track_duration_ms": 1995000,
+        "finished": false,
+        "replaying": false,
+        "resumable": true,
+        "group_path": "mp3/SE有"
+      },
+      "my_rating": 4
+    },
+    {
+      "id": 15,
+      "code": "RJ01000015",
+      "title": "示例作品四",
+      "circle": {
+        "id": 3,
+        "name": "示例社团"
+      },
+      "release_date": "2024-05-01",
+      "nsfw": false,
+      "rate_average": 4.62,
+      "rate_count": 318,
+      "has_cover": true,
+      "cover_version": 1,
+      "missing": true,
+      "favorite": true,
+      "progress": null,
+      "my_rating": null
+    }
+  ],
+  "page": 1,
+  "page_size": 40,
+  "total": 2
+}

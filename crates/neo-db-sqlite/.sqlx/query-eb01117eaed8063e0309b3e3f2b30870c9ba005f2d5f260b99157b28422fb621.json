@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO reviews (user_id, work_id, rating, text, updated_at) VALUES ($1, $2, $3, $4, $5)\n         ON CONFLICT (user_id, work_id) DO UPDATE SET\n             rating = excluded.rating, text = excluded.text, updated_at = excluded.updated_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "eb01117eaed8063e0309b3e3f2b30870c9ba005f2d5f260b99157b28422fb621"
+}

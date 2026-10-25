@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE tracks SET duplicate_of = NULL WHERE work_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "bd0282a24b200e6b74c3e51dde72caf4bc34e922732c6078faadffc93a551bd2"
+}

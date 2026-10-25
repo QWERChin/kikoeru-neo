@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE works SET missing_at = $1\n         WHERE missing_at IS NULL\n           AND id IN (SELECT work_id FROM work_locations WHERE root_id = $2)\n           AND NOT EXISTS (SELECT 1 FROM work_locations l\n                           WHERE l.work_id = works.id AND l.missing_at IS NULL)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f039722637b2652532dba5c9698c48a76538309d583a02fa57f25f8adf4390eb"
+}

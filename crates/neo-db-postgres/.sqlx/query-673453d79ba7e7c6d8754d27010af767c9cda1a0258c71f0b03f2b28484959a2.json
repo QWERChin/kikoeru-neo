@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE tracks SET size = $1, mtime = $2, display_path = $3, sort_key = $4,\n             kind = $5, probe = NULL, missing_at = NULL,\n             duration_ms = CASE WHEN duration_src = 'imported' THEN duration_ms END,\n             duration_src = CASE WHEN duration_src = 'imported' THEN duration_src END\n         WHERE id = $6",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "673453d79ba7e7c6d8754d27010af767c9cda1a0258c71f0b03f2b28484959a2"
+}

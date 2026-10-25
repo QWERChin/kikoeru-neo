@@ -1,0 +1,10 @@
+{
+  "RJ01000001": {
+    "dl_count": "1,234",
+    "rate_average_2dp": 4.62,
+    "rate_count": 318,
+    "rate_count_detail": [{"review_point": 5, "count": 300, "ratio": 94}],
+    "rank": [],
+    "price": 1320
+  }
+}

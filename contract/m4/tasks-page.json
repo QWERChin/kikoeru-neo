@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "id": 121,
+      "kind": "scan",
+      "state": "running",
+      "progress": 0.35,
+      "message": "同步轨道 410/1200",
+      "result": null,
+      "queue_position": null,
+      "created_at": 1791800000000,
+      "updated_at": 1791800090000
+    },
+    {
+      "id": 120,
+      "kind": "metadata",
+      "state": "failed",
+      "progress": null,
+      "message": "DLsite 暂时无法访问",
+      "result": null,
+      "queue_position": null,
+      "created_at": 1791799000000,
+      "updated_at": 1791799004000
+    }
+  ],
+  "page": 1,
+  "page_size": 40,
+  "total": 2
+}

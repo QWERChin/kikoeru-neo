@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO circles (id, name) VALUES ($1, $2)\n         ON CONFLICT (id) DO UPDATE SET name = excluded.name\n         WHERE excluded.name <> ''\n           AND NOT EXISTS (SELECT 1 FROM works\n                           WHERE circle_id = circles.id AND metadata_src = 'manual'\n                             AND id <> $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "295ab0c9fa00a546bfdab709cfd7f50eea6fa8f12aa748a2e0394a36abb45cca"
+}

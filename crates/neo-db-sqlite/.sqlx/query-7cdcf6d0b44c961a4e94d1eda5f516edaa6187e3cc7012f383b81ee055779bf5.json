@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT DISTINCT work_id AS \"work_id!: i64\" FROM work_locations WHERE root_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "name": "work_id!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "work_locations",
+            "name": "work_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7cdcf6d0b44c961a4e94d1eda5f516edaa6187e3cc7012f383b81ee055779bf5"
+}

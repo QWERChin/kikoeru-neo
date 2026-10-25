@@ -1,0 +1,45 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT c.id AS \"id!\", c.name, COUNT(*) AS \"work_count!: i64\"\n           FROM circles c JOIN works w ON w.circle_id = c.id AND w.missing_at IS NULL\n           GROUP BY c.id ORDER BY c.name, c.id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "circles",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "circles",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "work_count!: i64",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4082d7cd6c4fe1ce466b7c9c276b46a09e9933d32a206f828167e239e4e3f793"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO legacy_reviews (user_id, work_id, rating, review_text, progress)\n                 VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "73966e9a888f2079210119db2a71f0f7ebeecc1e7efc0461d3145f90a28ff5bc"
+}

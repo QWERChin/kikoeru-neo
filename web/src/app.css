@@ -1,0 +1,178 @@
+@import 'tailwindcss';
+
+/*
+ * Every colour is a CSS variable so dark mode only swaps values. Tailwind
+ * utilities such as bg-surface or text-secondary read these variables.
+ * `data-theme` on the root says which set applies. static/theme.js sets it
+ * from this device's choice or the system's before the first paint.
+ */
+:root {
+	--bg: #f2f2f7;
+	--surface: #ffffff;
+	--surface-raised: #ffffff;
+	--fill: #e5e5ea;
+	/* The selected segment of a segmented control, raised above --fill. */
+	--segment: #ffffff;
+	--text: #000000;
+	--text-secondary: #5c5c61;
+	--separator: #c6c6c8;
+	--accent: #0a63c9;
+	/* Accent used as text or an icon on the page background. */
+	--accent-text: #0a63c9;
+	/* The accent's tint for dark backgrounds, also used on the dark rating pill. */
+	--accent-text-dark: #5aa5f7;
+	--on-accent: #ffffff;
+	--heart: #ff2d55;
+	--listening: #248a3d;
+	--finished: #6c6c70;
+	--danger: #d70015;
+	--bar-bg: rgb(249 249 249 / 0.82);
+	--badge-bg: rgb(255 255 255 / 0.92);
+	/* An unset star of the user's rating, beside stars in --accent-text. */
+	--star-empty: #c7c7cc;
+	/*
+	 * The rating pill on a cover is dark in both themes so it reads on any
+	 * cover, which is why its stars use the accent tint made for dark mode.
+	 */
+	--pill-bg: rgb(0 0 0 / 0.62);
+	--pill-star: var(--accent-text-dark);
+	--pill-star-empty: rgb(255 255 255 / 0.38);
+	--shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+	--cover-saturation: 28%;
+	--cover-lightness: 62%;
+	color-scheme: light;
+}
+
+/* :where keeps the specificity of :root, so the accents below still override --accent. */
+:root:where([data-theme='dark']) {
+	--bg: #000000;
+	--surface: #1c1c1e;
+	--surface-raised: #2c2c2e;
+	--fill: #2c2c2e;
+	/* Lighter than --fill, as iOS draws a selected segment in dark mode. */
+	--segment: #636366;
+	--text: #ffffff;
+	--text-secondary: #a1a1a8;
+	--separator: #38383a;
+	--accent: #0a63c9;
+	/* #0a63c9 is below 4.5:1 on black, so text and icons use a lighter tint. */
+	--accent-text: #5aa5f7;
+	--on-accent: #ffffff;
+	--heart: #ff375f;
+	--listening: #30d158;
+	--finished: #c7c7cc;
+	--danger: #ff6961;
+	--bar-bg: rgb(22 22 23 / 0.82);
+	--badge-bg: rgb(28 28 30 / 0.9);
+	--star-empty: #48484a;
+	--shadow: none;
+	--cover-saturation: 22%;
+	--cover-lightness: 38%;
+	color-scheme: dark;
+}
+
+/*
+ * Accents (book: frontend.md, "强调色"). Each fill is the iOS system colour
+ * darkened until white text on it and the fill as text on --bg both reach
+ * 4.5:1. Dark mode only lightens the text tint, for 4.5:1 on --surface-raised.
+ * The selectors match any element, so a settings swatch shows its own colour.
+ */
+[data-accent='blue'] {
+	--accent: #0a63c9;
+	--accent-text: #0a63c9;
+	--accent-text-dark: #5aa5f7;
+}
+[data-accent='purple'] {
+	--accent: #a338d9;
+	--accent-text: #a338d9;
+	--accent-text-dark: #c66df3;
+}
+[data-accent='pink'] {
+	--accent: #df002b;
+	--accent-text: #df002b;
+	--accent-text-dark: #ff5677;
+}
+[data-accent='red'] {
+	--accent: #de0c00;
+	--accent-text: #de0c00;
+	--accent-text-dark: #ff5b51;
+}
+[data-accent='orange'] {
+	--accent: #a05e00;
+	--accent-text: #a05e00;
+	--accent-text-dark: #ff9f0a;
+}
+[data-accent='green'] {
+	--accent: #217e38;
+	--accent-text: #217e38;
+	--accent-text-dark: #30d158;
+}
+[data-accent='teal'] {
+	--accent: #217888;
+	--accent-text: #217888;
+	--accent-text-dark: #40c8e0;
+}
+[data-accent='indigo'] {
+	--accent: #5856d6;
+	--accent-text: #5856d6;
+	--accent-text-dark: #8a88ed;
+}
+
+/* Dark mode only swaps in each accent's lighter text tint. */
+:where([data-theme='dark']) [data-accent],
+:where([data-theme='dark'])[data-accent] {
+	--accent-text: var(--accent-text-dark);
+}
+
+@theme inline {
+	--font-sans:
+		-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', 'Noto Sans CJK SC', sans-serif;
+	--color-bg: var(--bg);
+	--color-surface: var(--surface);
+	--color-surface-raised: var(--surface-raised);
+	--color-fill: var(--fill);
+	--color-segment: var(--segment);
+	--color-text: var(--text);
+	--color-secondary: var(--text-secondary);
+	--color-separator: var(--separator);
+	--color-accent: var(--accent);
+	--color-accent-text: var(--accent-text);
+	--color-on-accent: var(--on-accent);
+	--color-heart: var(--heart);
+	--color-listening: var(--listening);
+	--color-finished: var(--finished);
+	--color-danger: var(--danger);
+	--color-star-empty: var(--star-empty);
+}
+
+/*
+ * Room for the macOS traffic lights when the desktop shell draws its title bar over the page.
+ * The shell pins the lights inside this height, since the native title bar's height differs
+ * between macOS versions (desktop/src-tauri/src/lib.rs, TRAFFIC_LIGHTS).
+ */
+:root {
+	--title-bar-h: 0px;
+}
+
+:root[data-title-bar='overlay'] {
+	--title-bar-h: 40px;
+}
+
+@layer base {
+	html {
+		-webkit-text-size-adjust: 100%;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	body {
+		background: var(--bg);
+		color: var(--text);
+		font-family: var(--font-sans);
+		-webkit-font-smoothing: antialiased;
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--accent-text);
+		outline-offset: 2px;
+	}
+}

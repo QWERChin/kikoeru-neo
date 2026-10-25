@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO track_analysis\n             (track_id, size, mtime, integrated_lufs, true_peak_dbtp, analyzed_at)\n         SELECT t.id, $1, $2, $3, $4, $5 FROM tracks t\n         JOIN work_locations l ON l.id = t.location_id JOIN roots r ON r.id = l.root_id\n         WHERE t.id = $6 AND r.source_version = $7\n         ON CONFLICT (track_id) DO UPDATE SET\n             size = excluded.size, mtime = excluded.mtime,\n             integrated_lufs = excluded.integrated_lufs,\n             true_peak_dbtp = excluded.true_peak_dbtp,\n             analyzed_at = excluded.analyzed_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Float8",
+        "Float8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b2f6127edfdb90fcba0b4b275426c4eb5897d296af3a2034be8fb6ab173f114e"
+}

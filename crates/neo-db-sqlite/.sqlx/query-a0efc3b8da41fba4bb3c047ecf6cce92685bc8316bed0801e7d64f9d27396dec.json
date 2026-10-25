@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE import_pending SET state = 'superseded'\n             WHERE state = 'pending' AND (user_id, work_id) IN (\n               SELECT user_id, work_id FROM play_progress\n               WHERE track_id IN (SELECT id FROM tracks WHERE location_id = $1))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "a0efc3b8da41fba4bb3c047ecf6cce92685bc8316bed0801e7d64f9d27396dec"
+}
