@@ -4,23 +4,22 @@ The server has no anonymous access or web registration. Create and delete accoun
 
 ## Create the first administrator
 
-After activating the NixOS module:
-
-```sh
-sudo -u kikoeru-neo kikoeru-neo user create --admin admin
-```
-
 With the Compose configuration from [Docker installation](install-docker.md), run this in the deployment directory:
 
 ```sh
 docker compose run --rm kikoeru-neo user create --admin admin
 ```
 
-For a standalone binary, select the same configuration and data directory as the service:
+For the [standalone binary](install-binary.md#run-as-a-system-service) as a system service, use the `kikoeru_neo` function defined there, which runs the command as the service user with the service's configuration:
 
 ```sh
-KIKOERU_CONFIG=/etc/kikoeru-neo/config.toml \
-  kikoeru-neo --data-dir /srv/kikoeru-neo user create --admin admin
+kikoeru_neo user create --admin admin
+```
+
+After activating the NixOS module:
+
+```sh
+sudo -u kikoeru-neo kikoeru-neo user create --admin admin
 ```
 
 Enter the password twice. Success prints `created admin admin`; you can then sign in. Passwords must have at least 8 characters. Usernames must have 1 to 64 characters, with no control characters or leading or trailing whitespace. Choose a long password that you do not reuse elsewhere.

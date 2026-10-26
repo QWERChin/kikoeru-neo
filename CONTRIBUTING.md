@@ -1,24 +1,104 @@
 # Contributing to kikoeru-neo
 
-Use the Nix development environment to build the Rust backend and Svelte frontend and test changes with synthetic data. You need Git and Nix with flakes enabled on `x86_64-linux` or `aarch64-linux`. For installation rather than development, start with the [user guide](docs/en/index.md).
+Build the Rust backend and the Svelte frontend, run them against synthetic data and run the checks before you open a pull request. Choose one of three development environments: the Dev Container needs only Docker, the Nix shell needs Nix with flakes, and you can also install the tools yourself. All three provide the same tools, and the commands after setup are the same. For installation rather than development, start with the [user guide](docs/en/index.md).
 
-## Set up and build
+## Set up a development environment
 
-From your checkout:
+### Dev Container (Docker)
+
+The `.devcontainer/` directory describes a Debian container with every tool already installed. Nix prepares the environment while the image builds, and each shell in the container loads it on start, so you never run `nix develop` inside and nothing is downloaded when you enter. You need Docker Engine 25 or newer on Linux, or Docker Desktop. The first image build downloads the toolchain, test browsers and PostgreSQL, which took about 12 minutes on a 24-core test machine. The image needs about 11 GB of disk. The image is rebuilt only when `flake.nix`, `flake.lock` or the Nix files of the development shell change.
+
+- **VS Code**: install the Dev Containers extension, open the checkout and run “Dev Containers: Reopen in Container”.
+- **JetBrains IDEs**: open `.devcontainer/devcontainer.json` from the checkout and choose to create a Dev Container.
+- **Without an IDE**: from the repository root, run
+
+  ```sh
+  docker compose -f .devcontainer/compose.yml build
+  docker compose -f .devcontainer/compose.yml run --rm --service-ports dev
+  ```
+
+The checkout is mounted at `/workspace` and the container runs as uid and gid 1000. If your host user has another uid, files the container writes belong to uid 1000 on the host. Ports 5173 (Vite) and 8888 (server) are forwarded to `127.0.0.1` on the host. Inside the container, start Vite with `pnpm dev --host 0.0.0.0` and let the server listen on `0.0.0.0:8888`, or the forwarded ports cannot reach them.
+
+### Nix
+
+Install Nix with flakes enabled on `x86_64-linux` or `aarch64-linux`, then enter the shell from the checkout:
 
 ```sh
 nix develop
-cargo build --locked -p neo-server
-nix build .#neo-server
 ```
 
-The shell supplies Rust, mold, Node, pnpm, ffmpeg, ffprobe, mdBook, SQLx CLI and PostgreSQL. The Cargo build serves the API without a frontend. The Nix package at `result/bin/kikoeru-neo` embeds the production frontend and supplies ffmpeg and ffprobe.
+### Install the tools yourself
+
+These are the versions the flake pins and CI tests. Other recent versions usually work but are not tested.
+
+| Tool | Version | Used for |
+|---|---|---|
+| Rust (rustc, cargo, rustfmt, clippy) | 1.98 | The backend. rust-analyzer is optional, for editors. |
+| A C toolchain (gcc or clang) and libc headers | Any current | Build scripts of Rust dependencies, including the bundled SQLite. |
+| mold | 2.42 | Required: `.cargo/config.toml` links with `-fuse-ld=mold` on Linux. |
+| Node.js | 22 | The frontend. |
+| pnpm | 12.9 | Frontend dependencies from `web/pnpm-lock.yaml`. |
+| ffmpeg and ffprobe | 9.0, a full build | Running the server and generating synthetic media in tests. Tests need the encoders `libx264`, `aac`, `libmp3lame`, `libvpx-vp9`, `libopus`, `mpeg4`, `flac` and the lavfi sources, which a distribution's full `ffmpeg` package has. |
+| sqlx-cli | 0.9, with SQLite and PostgreSQL | `scripts/sqlx-prepare.sh` after query or migration changes. |
+| PostgreSQL | 18 | `initdb` and `pg_ctl` for the PostgreSQL tests and `sqlx-prepare.sh`. Run them as a normal user. |
+| Python 3 with fonttools and brotli | 3.14, fonttools 4.63 | `nix/fallback-fonts.py`, which builds the subtitle fallback fonts, and `scripts/bench.py`. |
+| Liberation Sans and Noto Sans CJK fonts | 2.1, 2.004 | Sources of the subtitle fallback fonts embedded in the frontend. |
+| Playwright browsers | Chromium and Firefox for `@playwright/test` 1.63.0 | Browser tests. Install them with `pnpm exec playwright install --with-deps chromium firefox` in `web/`. The Chinese interface also needs a CJK font installed for screenshots to show text. |
+| mdBook | 0.5 | Building the design book. |
+
+The Linux desktop application has its own workspace in `desktop/` and also needs pkg-config, GTK 3, WebKitGTK 4.1, libsoup 3, librsvg, libayatana-appindicator and GStreamer with the base, good, bad and libav plugins, with their development headers. The NixOS VM checks need Nix and KVM and cannot run without them.
+
+## Build
 
 Keep the host's Cargo build-directory settings. Do not set `CARGO_TARGET_DIR` or add `target-dir` or `build-dir` to the repository's `.cargo/config.toml`.
 
+`cargo build --locked -p neo-server` builds a server that serves only the API, which is enough for backend work with the Vite development server in front of it. The production server embeds the built frontend:
+
+- With Nix, `nix build .#neo-server` produces `result/bin/kikoeru-neo` with the frontend embedded and the reduced ffmpeg supplied. `nix build .#neo-server-static` produces the fully static `x86_64` binary that releases publish.
+- With Docker, `docker build -t kikoeru-neo .` builds the release image.
+
+### Build the full server without Nix
+
+The frontend build embeds two subtitle fallback fonts and their licenses. In the Dev Container and the Nix shell, `KIKOERU_FALLBACK_FONTS_DIR` already points at the built fonts, so the build is:
+
+```sh
+(cd web && pnpm install --frozen-lockfile && pnpm build)
+mkdir -p web/build/licenses
+cp "$KIKOERU_FALLBACK_FONTS_DIR/LICENSE-latin.txt" web/build/licenses/fallback-font-latin.txt
+cp "$KIKOERU_FALLBACK_FONTS_DIR/LICENSE-cjk.txt" web/build/licenses/fallback-font-cjk.txt
+cargo build --locked --release -p neo-server --features embed-web
+```
+
+With tools you installed yourself, build the fonts first. On Debian 13, install the distribution packages, then Rust through [rustup](https://rustup.rs), Node.js 22 from [nodejs.org](https://nodejs.org) (Debian 13 ships Node.js 20) and pnpm with `npm install -g pnpm@12.9.0`:
+
+```sh
+sudo apt install build-essential mold git curl python3 python3-fonttools \
+  python3-brotli fonts-liberation fonts-noto-cjk ffmpeg
+```
+
+Then, from the repository root:
+
+```sh
+export KIKOERU_FALLBACK_FONTS_DIR="$PWD/dev-data/fonts"
+mkdir -p "$KIKOERU_FALLBACK_FONTS_DIR"
+python3 nix/fallback-fonts.py latin \
+  /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf \
+  "$KIKOERU_FALLBACK_FONTS_DIR/fallback-latin.woff2"
+python3 nix/fallback-fonts.py cjk \
+  /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc \
+  "$KIKOERU_FALLBACK_FONTS_DIR/fallback-cjk.woff2"
+(cd web && pnpm install --frozen-lockfile && pnpm build)
+mkdir -p web/build/licenses
+cp /usr/share/doc/fonts-liberation/copyright web/build/licenses/fallback-font-latin.txt
+cp /usr/share/doc/fonts-noto-cjk/copyright web/build/licenses/fallback-font-cjk.txt
+cargo build --locked --release -p neo-server --features embed-web
+```
+
+Other distributions install the same fonts under other paths; `fc-list | grep -E 'LiberationSans-Regular|NotoSansCJK-Regular'` shows where. `pnpm build` also generates the API types, which needs cargo. The result is `target/release/kikoeru-neo`, a single file with the frontend inside. It links against your system's libc, and it runs ffmpeg and ffprobe from `PATH` like the released binary.
+
 ## Run the backend and frontend
 
-In the development shell, create a separate development data directory and configuration. Use synthetic media, never an existing installation's database or credentials:
+In your development environment, create a separate development data directory and configuration. Use synthetic media, never an existing installation's database or credentials:
 
 ```sh
 umask 077
@@ -31,9 +111,9 @@ cargo run --locked -p neo-server -- user create --admin admin
 cargo run --locked -p neo-server -- serve
 ```
 
-Account creation prompts for a password of at least 8 characters. On later runs, reuse the directory and configuration and run only `serve`. Stop the server with Ctrl-C.
+In the Dev Container, write `listen = "0.0.0.0:8888"` instead. Account creation prompts for a password of at least 8 characters. On later runs, reuse the directory and configuration and run only `serve`. Stop the server with Ctrl-C.
 
-In a second terminal, enter `nix develop` at the repository root, then start the frontend:
+In a second terminal in the same environment (another container terminal, or `nix develop` again at the repository root), start the frontend:
 
 ```sh
 cd web
@@ -42,7 +122,7 @@ pnpm gen:types
 pnpm dev
 ```
 
-Open the URL Vite prints, normally `http://127.0.0.1:5173`. Vite forwards `/api` to `http://127.0.0.1:8888`. Sign in with the development account. To work on UI states without a backend, stop Vite and run:
+Add `--host 0.0.0.0` to `pnpm dev` in the Dev Container. Open the URL Vite prints, normally `http://127.0.0.1:5173`. Vite forwards `/api` to `http://127.0.0.1:8888`. Sign in with the development account. To work on UI states without a backend, stop Vite and run:
 
 ```sh
 pnpm dev:mock
@@ -52,18 +132,18 @@ Mock mode uses the JSON samples in `contract/`. It does not validate backend int
 
 ## Run checks
 
-From the repository root:
+Use focused checks while you work, then run the full set once before you open a pull request. The focused checks below run in any of the three environments. The full set needs Nix, which the Dev Container also contains. From the repository root:
 
 ```sh
 nix flake check
 nix build .#book --no-link
 ```
 
-`nix flake check` builds the checks defined for the current system. The following checks are defined only on `x86_64-linux`: `rust-lint`, `rust-test`, `rust-test-pg`, `e2e`, `e2e-mock`, `windows`, `desktop`, `desktop-windows`, `docker` and `nixos`. The `neo-typegen` package's test phase also runs only on x86_64. A successful ARM64 check does not imply equivalent test coverage. GitHub CI runs the x86_64 check set.
+The `docker` and `nixos` checks start NixOS virtual machines and need `/dev/kvm`, which a container usually does not have. Without Nix, run the focused checks and let CI run the full set on your pull request. `nix flake check` builds the checks defined for the current system. The following checks are defined only on `x86_64-linux`: `rust-lint`, `rust-test`, `rust-test-pg`, `e2e`, `e2e-mock`, `windows`, `desktop`, `desktop-windows`, `docker` and `nixos`. The `neo-typegen` package's test phase also runs only on x86_64. A successful ARM64 check does not imply equivalent test coverage. GitHub CI runs the x86_64 check set.
 
 `rust-test` runs the root Rust workspace with the embedded frontend. The desktop shell is a separate workspace. `rust-test-pg` runs selected database and scanner targets, not every workspace test against PostgreSQL. Windows cross-checks prove compilation, not runtime behavior. Documentation-only changes are skipped by CI's path filters, so build the book locally.
 
-During development, use focused checks inside `nix develop`:
+Focused checks for the backend:
 
 ```sh
 cargo fmt --all -- --check
@@ -83,13 +163,14 @@ pnpm build
 pnpm e2e:mock
 ```
 
-For production-package browser tests, first build `nix build .#neo-server` at the root, then run this in `web/` inside the development shell:
+Browser tests against the production server need a server with the embedded frontend. Build it with `nix build .#neo-server` or as described in [Build the full server without Nix](#build-the-full-server-without-nix), then run this in `web/` with the matching path:
 
 ```sh
 KIKOERU_NEO_BIN=../result/bin/kikoeru-neo pnpm e2e
+KIKOERU_NEO_BIN=../target/release/kikoeru-neo pnpm e2e
 ```
 
-The development shell supplies the Playwright browsers. Focused Cargo and pnpm checks do not replace the final flake checks. The [testing chapter](book/src/testing.md) is in Chinese and describes the coverage boundaries and hardware validation that automation cannot replace.
+The Nix shell and the Dev Container supply the Playwright browsers. Focused Cargo and pnpm checks do not replace the final flake checks. The [testing chapter](book/src/testing.md) is in Chinese and describes the coverage boundaries and hardware validation that automation cannot replace.
 
 ## Keep the code and specification consistent
 

@@ -52,7 +52,7 @@ KIKOERU_CONFIG=/etc/kikoeru-neo/config.toml \
 | `media.light_jobs` | `4` | 后台探测、响度等轻任务的并发数。播放时的即时探测另有同样多的名额。 |
 | `media.job_timeout` | `"2h"` | 单个转码任务的超时。 |
 | `media.queue_limit` | `32` | 排队任务的上限，转码和响度、波形分析分别计数，某一类超过时返回 `queue_full`。 |
-| `media.ffmpeg`、`media.ffprobe` | 未设置 | 可执行文件的绝对路径。未设置时从 `PATH` 查找，Nix 包和镜像已提供。 |
+| `media.ffmpeg`、`media.ffprobe` | 未设置 | 可执行文件的绝对路径。未设置时从 `PATH` 查找。Docker 镜像和 Nix 包已经带有这两个工具，[单文件版](install-binary.md#先安装-ffmpeg)需要自己安装。 |
 | `media.video_transcode` | `true` | 是否允许视频重新编码，不影响直接播放和转封装。 |
 | `cache.max_bytes` | `"20GB"` | `cache/transcode/` 的淘汰目标，按最近访问时间淘汰。正在使用的条目可能让占用超过它，临时文件和缩略图不计入。 |
 | `cache.min_free_bytes` | `"5GB"` | 剩余磁盘空间不足时拒绝新的生成任务。 |

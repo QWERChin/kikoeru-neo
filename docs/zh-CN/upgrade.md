@@ -10,9 +10,32 @@
 
 运行中的扫描会被重启中断，启动后标为 `interrupted`，需要手动重新扫描。排队任务会重新排队，不因重启自动取消。已经提交的数据保留，但这不是自动断点续跑保证。
 
-## NixOS 或直接运行
+## Docker
 
-NixOS 用 `flake.lock` 固定 kikoeru-neo 输入。更新锁定版本后保存该锁文件，并从同一份配置激活目标系统。需要长期固定一个版本时，将输入指向实际存在的版本标签或修订，不让另一份旧锁文件在下次更新中覆盖它。
+用完整版本标签（如 `0.1.1`）或镜像摘要作为恢复点，不用浮动的 `0.1` 系列标签。改动前先记下容器当前使用的镜像：
+
+```sh
+docker compose images kikoeru-neo
+```
+
+使用发布镜像时，在 `compose.yaml` 里改好标签，完成备份后拉取并重启：
+
+```sh
+docker compose pull kikoeru-neo
+docker compose up -d
+docker compose ps
+docker compose logs --tail 100 kikoeru-neo
+```
+
+自己构建镜像时，检出新版本的标签，用和之前相同的方式（[Dockerfile 或 Nix](install-docker.md#获取镜像)）构建到新标签，例如 `kikoeru-neo:0.1.1`，再改 `compose.yaml` 并运行同样的 `up -d`。保留旧镜像，不要用新构建覆盖旧标签，这样才能回到旧版本。升级不需要删除数据卷。
+
+## 单文件版
+
+按[下载并校验](install-binary.md#下载并校验)获取新版本，但保留旧文件。停止服务，用新文件替换 `/usr/local/bin/kikoeru-neo`，再用同一份配置和数据目录启动服务。新版本运行正常之前，不要删除旧的二进制。
+
+## NixOS
+
+NixOS 用 `flake.lock` 固定 kikoeru-neo 输入。把输入指向目标版本的标签，例如 `github:QWERChin/kikoeru-neo/v0.1.1`，保存更新后的锁文件，再从同一份配置激活系统。不要让另一份旧锁文件在下次部署时覆盖它。
 
 在系统 flake 所在目录，目标名为 `media` 时：
 
@@ -23,23 +46,7 @@ systemctl status kikoeru-neo
 journalctl -u kikoeru-neo -n 100 --no-pager
 ```
 
-`nix flake update` 选择输入地址允许的最新修订，不会替你挑选合适的发布。需精确版本时先修改输入地址。不要在确认目标和备份前直接运行升级命令。
-
-直接运行二进制时，从选定版本的源码构建 `nix build .#neo-server`，停止旧进程后用同一数据目录和配置启动新包。保留旧包或其可重建的固定输入，以便恢复。
-
-## Docker
-
-使用完整版本标签或镜像摘要，不用浮动系列标签作为恢复点。源构建镜像按 [Docker 安装](install-docker.md)重新构建和载入。只有确认 GHCR 上存在可访问的目标版本后，才用 `docker compose pull kikoeru-neo` 获取发布镜像。
-
-改好 Compose 中的 `image` 并完成备份后：
-
-```sh
-docker compose up -d
-docker compose ps
-docker compose logs --tail 100 kikoeru-neo
-```
-
-同一个源码版本号可能被本地多次构建，保留旧镜像的 ID 或独立标签，不依赖被覆盖的标签回退。升级不需要删除数据卷。
+`nix flake update` 选择输入地址允许的最新修订，不会替你挑选合适的发布。需要精确版本时先修改输入地址。不要在确认目标和备份前直接运行升级命令。
 
 ## 升级后核对
 

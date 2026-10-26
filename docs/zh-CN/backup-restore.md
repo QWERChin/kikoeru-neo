@@ -20,13 +20,6 @@
 
 备份可在服务运行时执行。目标必须还不存在，父目录必须存在且运行账号可写，目标不能位于数据目录里面。每次用一个新名字，下面的 `before-upgrade` 只适合首次使用。
 
-NixOS 默认安装可先准备备份父目录：
-
-```sh
-sudo install -d -o kikoeru-neo -g kikoeru-neo -m 0700 /var/backup/kikoeru-neo
-sudo -u kikoeru-neo kikoeru-neo backup /var/backup/kikoeru-neo/before-upgrade
-```
-
 Docker 安装页的 Compose 有独立备份卷，在部署目录运行：
 
 ```sh
@@ -36,7 +29,21 @@ mkdir backup-export
 docker compose cp kikoeru-neo:/backup/before-upgrade ./backup-export/
 ```
 
-`backup-export` 是本次新建的目录，用于限制宿主机上的访问。复制后检查文件存在、属主正确，再把备份保存到独立存储。容器健康不代表备份成功，以备份命令退出状态和文件为准。直接运行二进制时，要显式使用服务的配置和数据目录，见[配置](configuration.md)。
+`backup-export` 是本次新建的目录，用于限制宿主机上的访问。复制后检查文件存在、属主正确，再把备份保存到独立存储。容器健康不代表备份成功，以备份命令退出状态和文件为准。
+
+[单文件版](install-binary.md#作为系统服务运行)作为系统服务运行时，使用那里定义的 `kikoeru_neo` 函数：
+
+```sh
+sudo install -d -o kikoeru-neo -g kikoeru-neo -m 0700 /var/backups/kikoeru-neo
+kikoeru_neo backup /var/backups/kikoeru-neo/before-upgrade
+```
+
+NixOS 默认安装可先准备备份父目录：
+
+```sh
+sudo install -d -o kikoeru-neo -g kikoeru-neo -m 0700 /var/backup/kikoeru-neo
+sudo -u kikoeru-neo kikoeru-neo backup /var/backup/kikoeru-neo/before-upgrade
+```
 
 SQLite 通过 `VACUUM INTO` 导出包含 WAL 中数据的一致数据库快照，不能替换成运行时只复制 `neo.sqlite3`。PostgreSQL 在只读快照事务中导出为 SQLite，要求源数据库迁移版本与程序一致，不需要 `pg_dump`。SQLite 备份命令不运行迁移。
 

@@ -20,13 +20,6 @@ The command skips symbolic links rather than copying files outside the backup tr
 
 The service may remain running. The destination must not exist, its parent must exist and be writable by the command's user, and it must be outside the data directory. Choose a new name each time; `before-upgrade` below can only be used once at that location.
 
-For a default NixOS installation:
-
-```sh
-sudo install -d -o kikoeru-neo -g kikoeru-neo -m 0700 /var/backup/kikoeru-neo
-sudo -u kikoeru-neo kikoeru-neo backup /var/backup/kikoeru-neo/before-upgrade
-```
-
 The Docker guide provides a separate backup volume. From the Compose directory:
 
 ```sh
@@ -36,7 +29,21 @@ mkdir backup-export
 docker compose cp kikoeru-neo:/backup/before-upgrade ./backup-export/
 ```
 
-Use a new `backup-export` directory so the umask restricts host access. Check files and ownership after copying, then save the backup to separate storage. Container health is not proof of backup success; check the backup command's exit status and output files. With a standalone binary, explicitly select the service's [configuration and data directory](configuration.md).
+Use a new `backup-export` directory so the umask restricts host access. Check files and ownership after copying, then save the backup to separate storage. Container health is not proof of backup success; check the backup command's exit status and output files.
+
+For the [standalone binary](install-binary.md#run-as-a-system-service) as a system service, with the `kikoeru_neo` function defined there:
+
+```sh
+sudo install -d -o kikoeru-neo -g kikoeru-neo -m 0700 /var/backups/kikoeru-neo
+kikoeru_neo backup /var/backups/kikoeru-neo/before-upgrade
+```
+
+For a default NixOS installation:
+
+```sh
+sudo install -d -o kikoeru-neo -g kikoeru-neo -m 0700 /var/backup/kikoeru-neo
+sudo -u kikoeru-neo kikoeru-neo backup /var/backup/kikoeru-neo/before-upgrade
+```
 
 SQLite uses `VACUUM INTO` to create a consistent database snapshot including data still in the WAL. Copying only a live `neo.sqlite3` file is not equivalent. PostgreSQL exports to SQLite from a read-only snapshot transaction and requires a source schema matching the program version; no `pg_dump` is needed. The SQLite backup command does not run migrations.
 

@@ -4,23 +4,22 @@
 
 ## 创建第一个管理员
 
-NixOS 模块激活后运行：
-
-```sh
-sudo -u kikoeru-neo kikoeru-neo user create --admin admin
-```
-
 按 [Docker 安装页](install-docker.md)配置 Compose 后，在部署目录运行：
 
 ```sh
 docker compose run --rm kikoeru-neo user create --admin admin
 ```
 
-直接运行二进制时，在后续命令前指定同一份配置和数据目录。例如：
+[单文件版](install-binary.md#作为系统服务运行)作为系统服务运行时，使用那里定义的 `kikoeru_neo` 函数。它以服务用户身份、用服务的配置运行命令：
 
 ```sh
-KIKOERU_CONFIG=/etc/kikoeru-neo/config.toml \
-  kikoeru-neo --data-dir /srv/kikoeru-neo user create --admin admin
+kikoeru_neo user create --admin admin
+```
+
+NixOS 模块激活后运行：
+
+```sh
+sudo -u kikoeru-neo kikoeru-neo user create --admin admin
 ```
 
 交互输入两次密码，成功后输出 `created admin admin`。然后打开服务页面登录。密码至少 8 个字符，用户名为 1 到 64 个字符，不能有控制字符或首尾空白。选择足够长且不复用的密码。
