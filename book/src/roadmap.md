@@ -47,8 +47,9 @@
 
 ## 验证与资源测量
 
-- [ ] 首个 `v0.1.0` 发布需要在合并后创建标签，确认 GHCR 包为 public 且可匿名拉取，并下载校验 GitHub Release 的静态资产。状态：构建和发布流程已实现，尚未实际发布。
-- [ ] 根 Dockerfile 和 Dev Container 需要在真实 Docker 主机、原生 aarch64 主机及 VS Code、JetBrains 中验证。状态：Ubuntu CI 冒烟已定义，本地 Nix 检查不能代替这些运行边界。
+- [x] 首个 `v0.1.0` 发布：GHCR 镜像可匿名拉取，GitHub Release 的静态资产下载后校验通过，并在 Alpine 容器里启动成功。快速开始的 Docker 命令用发布镜像完整跑通。
+- [ ] 根 Dockerfile 和 Dev Container 需要在原生 aarch64 主机及 VS Code、JetBrains 中验证。状态：x86_64 的真实 Docker 主机上两者都已构建并通过冒烟，Ubuntu CI 在相关输入变化时重复这项检查。
+- [ ] 发布工作流在一个 runner 上构建全部检查。GitHub Actions 缓存限流时所有检查从头构建，`v0.1.0` 第一次运行时 `e2e` 因此失败，重跑通过。失败用例被 `log-lines 200` 截掉，无法确认原因。状态：待让发布检查在失败时保留完整的 e2e 报告，或复用 CI 已通过的结果。
 - [ ] musl mallocng 与 glibc 包尚无同负载的长期并发转发测量。状态：静态包保留默认分配器，不能从启动检查声称 RSS 或吞吐改善。
 - [ ] `scripts/soak.py` 对没有时长的强制转码轨道仍按源扩展名估算读取码率，不能准确模拟 AAC 输出。状态：下次使用前按输出码率修正。
 - [ ] 假数据浏览器测试缺少可比较的资源测量。状态：待用 `scripts/check-memory.py e2e-mock` 在可控负载下记录峰值和用时。

@@ -189,7 +189,7 @@ NixOS 模块管理服务账号、只读配置、数据目录和 systemd 单元�
 
 ### 发布
 
-发布工作流的目标是 `ghcr.io/qwerchin/kikoeru-neo`，目前只发布 x86_64 镜像。镜像的 `org.opencontainers.image.source` 指向仓库，`org.opencontainers.image.licenses` 为 `GPL-3.0-or-later`。source label 让包关联仓库并继承访问权限，但不继承 public 可见性。GHCR 首次创建包仍默认 private，维护者须在包设置中改为 public，并验证匿名拉取，规则见 [GitHub 文档](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)。
+发布工作流的目标是 `ghcr.io/qwerchin/kikoeru-neo`，目前只发布 x86_64 镜像。镜像的 `org.opencontainers.image.source` 指向仓库，`org.opencontainers.image.licenses` 为 `GPL-3.0-or-later`。包由公开仓库的工作流用 `GITHUB_TOKEN` 推送，并通过 source label 关联仓库，因此继承仓库的公开可见性，不需要在包设置里手动改为 public。`v0.1.0` 首次发布后已在没有任何凭据的情况下拉取成功。仓库若改为私有，包的访问权限也会随之改变，已部署的拉取会失败。
 
 - **标签。** `X.Y.Z` 固定一个版本，`X.Y` 指向该系列最新补丁，不发布 `latest`。需要可重复部署时固定完整版本或镜像摘要。
 - **触发。** `.github/workflows/release.yml` 响应 `vX.Y.Z` 标签，并允许手动重试已有标签。版本必须与 `Cargo.toml` 一致。工作流运行检查、构建镜像，再由 `scripts/ghcr-release.sh` 推送。
