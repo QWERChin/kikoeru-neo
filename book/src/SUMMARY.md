@@ -23,6 +23,7 @@
 
 - [从旧 kikoeru 迁移数据](migration.md)
 - [测试与验证](testing.md)
+  - [分配器版本与移植边界](allocator-sources.md)
 - [构建与部署](deployment.md)
 - [路线图](roadmap.md)
 - [设计决定与开放问题](open-questions.md)

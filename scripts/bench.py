@@ -57,9 +57,11 @@ def make_library(root, works, tracks_per_work, long_tracks):
         generate(os.path.join(longs, f"long{i:02d}.flac"), LONG_SECONDS + i, ["-c:a", "flac"])
 
 
-def free_port():
+def free_port(port=0):
     with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
+        # Match the server's bind semantics when a previous run left TIME_WAIT.
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("127.0.0.1", port))
         return s.getsockname()[1]
 
 
@@ -219,12 +221,18 @@ class Sampler(threading.Thread):
         self.pid = pid
         self.stop_event = threading.Event()
         self.server_peak = 0
+        self.server_swap_peak = 0
+        self.server_rss_swap_peak = 0
         self.children_peak = 0
         self.max_children = 0
 
     def run(self):
         while not self.stop_event.is_set():
-            self.server_peak = max(self.server_peak, rss_kib(self.pid))
+            rss = rss_kib(self.pid)
+            swap = rss_kib(self.pid, "VmSwap")
+            self.server_peak = max(self.server_peak, rss)
+            self.server_swap_peak = max(self.server_swap_peak, swap)
+            self.server_rss_swap_peak = max(self.server_rss_swap_peak, rss + swap)
             kids = children(self.pid)
             self.max_children = max(self.max_children, len(kids))
             self.children_peak = max(self.children_peak, sum(rss_kib(k) for k in kids))
@@ -318,6 +326,7 @@ def all_tracks(server):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--bin", default="./result/bin/kikoeru-neo")
+    parser.add_argument("--port", type=int, default=0, help="loopback port, or 0 to choose a free port")
     parser.add_argument("--works", type=int, default=3000)
     parser.add_argument("--tracks", type=int, default=8, help="tracks per work")
     parser.add_argument("--long-tracks", type=int, default=7,
@@ -350,7 +359,7 @@ def main():
         make_library(root, args.works, args.tracks, args.long_tracks)
         report["library_seconds"] = round(time.time() - t0, 1)
 
-        port = free_port()
+        port = free_port(args.port)
         write_config(config, port, root, args.cache_max_bytes, 0)
         run([binary, "--data-dir", data, "user", "create", "--admin", ADMIN[0],
              "--password-stdin"], input=(ADMIN[1] + "\n").encode())
@@ -359,6 +368,7 @@ def main():
         server.login()
         time.sleep(2)
         report["rss_idle_kib"] = rss_kib(server.proc.pid)
+        report["swap_idle_kib"] = rss_kib(server.proc.pid, "VmSwap")
 
         # Full scan of an empty database.
         start = time.time()
@@ -368,6 +378,7 @@ def main():
         report["scan_seconds"] = round(time.time() - start, 1)
         report["scan_result"] = scan_summary(data, task["id"])
         report["rss_after_scan_kib"] = rss_kib(server.proc.pid)
+        report["swap_after_scan_kib"] = rss_kib(server.proc.pid, "VmSwap")
         tracks, longs = all_tracks(server)
         # A scan that skipped files would leave the load phases with less
         # to do than they report.
@@ -387,6 +398,7 @@ def main():
             p.start()
         time.sleep(min(10, args.load_seconds))
         report["rss_streaming_kib"] = rss_kib(server.proc.pid)
+        report["swap_streaming_kib"] = rss_kib(server.proc.pid, "VmSwap")
         streaming_errors = errors
         stop.set()
         for p in players:
@@ -440,17 +452,24 @@ def main():
             "api_p95_ms": percentile(latencies, 0.95),
             "errors": len(errors),
             "server_peak_rss_kib": sampler.server_peak,
+            "server_peak_swap_kib": sampler.server_swap_peak,
+            "server_peak_rss_plus_swap_kib": sampler.server_rss_swap_peak,
             "children_peak_rss_kib": sampler.children_peak,
             "children_max_concurrent": sampler.max_children,
         }
         cache = os.path.join(data, "cache")
+        cached_names = os.listdir(os.path.join(cache, "transcode"))
+        # Analysis publishes waveforms beside the AAC outputs. Only the
+        # AAC files correspond to the transcodes counted below.
+        transcode_files = sum(name.endswith(".m4a") for name in cached_names)
         report["cache"] = {
             "transcode_bytes": usage(os.path.join(cache, "transcode"))[0],
             "transcode_allocated_bytes": usage(os.path.join(cache, "transcode"))[1],
             "max_bytes": args.cache_max_bytes,
-            "files": len(os.listdir(os.path.join(cache, "transcode"))),
+            "files": len(cached_names),
+            "transcode_files": transcode_files,
             "evicted": sum(1 for t in ended if t["state"] == "done")
-            - len(os.listdir(os.path.join(cache, "transcode"))),
+            - transcode_files,
             "tmp_leftovers": os.listdir(os.path.join(cache, "tmp")),
         }
         # Background probes from the scan may still run; transcodes may not.
@@ -468,6 +487,7 @@ def main():
         report["server_exits"] = [server.stop()]
         free = shutil.disk_usage(data).free
         write_config(config, port, root, args.cache_max_bytes, free + 10**9)
+        free_port(port)
         server = Server(binary, data, config, port)
         servers.append(server)
         server.login()

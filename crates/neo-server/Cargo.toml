@@ -16,6 +16,8 @@ postgres = ["neo-core/postgres", "neo-db/postgres"]
 # default so backend work does not need a frontend build. The Nix package
 # turns it on after building the frontend.
 embed-web = ["dep:rust-embed"]
+# Replaces the executable's allocator; the static musl build turns it on.
+jemalloc = ["dep:tikv-jemallocator"]
 
 [dependencies]
 neo-core = { workspace = true, features = ["db"] }
@@ -56,6 +58,7 @@ tempfile.workspace = true
 # A merge target hard-linked to the old database has to be refused, and
 # std exposes file identity only on Unix.
 same-file = "1"
+tikv-jemallocator = { version = "0.7", optional = true }
 
 # Only the Unix code paths use rustix; Windows has its own.
 [target.'cfg(unix)'.dependencies]

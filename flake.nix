@@ -408,12 +408,14 @@
           preBuild = copyWeb pkgs;
         });
       # A standalone musl binary; administrators supply ffmpeg separately.
+      # musl's mallocng is markedly slower under concurrent load, so this
+      # build uses jemalloc (measurements in book/src/testing.md).
       neoServerStatic = pkgs: { stamped }:
         let
           craneLib = crane.mkLib pkgs.pkgsStatic;
           args = rustCommon // {
             pname = "neo-server-static";
-            cargoExtraArgs = "--locked -p neo-server --features neo-server/embed-web";
+            cargoExtraArgs = "--locked -p neo-server --features neo-server/embed-web,neo-server/jemalloc";
             doCheck = false;
           };
         in craneLib.buildPackage (args // {

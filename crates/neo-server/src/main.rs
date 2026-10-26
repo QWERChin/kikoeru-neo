@@ -1,5 +1,9 @@
 use std::{io::IsTerminal, path::PathBuf, process::ExitCode};
 
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static ALLOCATOR: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 use anyhow::Result;
 use clap::Parser;
 use neo_db::Db;

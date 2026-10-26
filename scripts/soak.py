@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Soak test against a running kikoeru-neo with a real library.
+"""Soak test against a running kikoeru-neo with a disposable synthetic library.
 
 Virtual listeners stream tracks at real-time rate with seeks and track
 switches and fetch each track's loudness and waveform. One of them forces
@@ -27,6 +27,13 @@ import time
 import tomllib
 import urllib.error
 import urllib.request
+
+_random = threading.local()
+
+
+def random_source():
+    return getattr(_random, "source", random)
+
 
 CHUNK = 256 * 1024
 AUDIO_CAN_PLAY = ["audio/mpeg", "audio/mp4", "audio/aac", "audio/wav", "audio/flac", "audio/ogg"]
@@ -121,10 +128,14 @@ class Stats:
 
 def p95(values):
     """Nearest-rank p95, so a window of a few probes keeps its slowest."""
+    return percentile(values, 0.95)
+
+
+def percentile(values, fraction):
     if not values:
         return None
     values = sorted(values)
-    return round(values[math.ceil(len(values) * 0.95) - 1], 1)
+    return round(values[math.ceil(len(values) * fraction) - 1], 3)
 
 
 class Library:
@@ -141,7 +152,7 @@ class Library:
         for _ in range(50):
             if self.stop.is_set():
                 return []
-            page = random.randint(1, max(1, self.total))
+            page = random_source().randint(1, max(1, self.total))
             status, body = self.api.request("GET", f"/api/works?root={self.root}&page={page}&page_size=1")
             if status != 200 or not body["items"]:
                 continue
@@ -170,7 +181,7 @@ def play(api, stop, stats, url, track, seconds):
     size = None
     pos = 0
     end = time.monotonic() + seconds
-    next_seek = time.monotonic() + random.uniform(60, 180)
+    next_seek = time.monotonic() + random_source().uniform(60, 180)
     while time.monotonic() < end and not stop.is_set():
         started = time.monotonic()
         status, body, headers = api.request("GET", url, headers={"range": f"bytes={pos}-{pos + CHUNK - 1}"},
@@ -190,9 +201,9 @@ def play(api, stop, stats, url, track, seconds):
         if size and pos >= size:
             return
         if time.monotonic() >= next_seek and size:
-            pos = random.randrange(0, size)
+            pos = random_source().randrange(0, size)
             stats.event("seek")
-            next_seek = time.monotonic() + random.uniform(60, 180)
+            next_seek = time.monotonic() + random_source().uniform(60, 180)
 
 
 def wait_task(api, stop, task_id, limit=1800):
@@ -215,6 +226,9 @@ def prepare(api, stop, track, can_play, force=False):
         task = wait_task(api, stop, body["task_id"])
         if task and task["state"] == "done" and task.get("result"):
             return task["result"]["url"]
+        if task and task["state"] != "done":
+            # A simultaneous stop must not hide a terminal task failure.
+            api.stats.event(f"prepare_task_{task['state']}")
     return None
 
 
@@ -227,10 +241,15 @@ def analyse(api, stop, stats, track):
     if status == 202:
         stats.task(body["task_id"])
         task = wait_task(api, stop, body["task_id"])
+        if task is None and stop.is_set():
+            stats.event("analysis_interrupted")
+            return
         if not task or task["state"] != "done":
             stats.event("analysis_failed")
             return
         stats.event("analysis")
+        if stop.is_set():
+            return
         status, body = api.request("GET", f"{path}/loudness")
     if status != 200:
         stats.event(f"loudness_{status}")
@@ -241,10 +260,15 @@ def analyse(api, stop, stats, track):
         task_id = json.loads(body)["task_id"]
         stats.task(task_id)
         task = wait_task(api, stop, task_id)
+        if task is None and stop.is_set():
+            stats.event("waveform_interrupted")
+            return
         if not task or task["state"] != "done":
             stats.event("waveform_regeneration_failed")
             return
         stats.event("waveform_regenerated")
+        if stop.is_set():
+            return
         status, _, headers = api.request("GET", f"{path}/waveform", want_headers=True)
     stats.event(f"waveform_{status}")
     if status == 200 and headers.get("etag"):
@@ -261,9 +285,11 @@ def listener(api, lib, stop, stats, transcodes):
             continue
         if stop.is_set():
             return
-        track = random.choice(tracks)
+        track = random_source().choice(tracks)
         force = transcodes and time.monotonic() - last_transcode > 15 * 60
         url = prepare(api, stop, track, AUDIO_CAN_PLAY, force)
+        if stop.is_set():
+            return
         if force:
             last_transcode = time.monotonic()
             stats.event("transcode" if url else "transcode_failed")
@@ -276,7 +302,7 @@ def listener(api, lib, stop, stats, transcodes):
         threading.Thread(target=guarded, args=(analyse, stop, stats, api, stop, stats, track),
                          daemon=True).start()
         # A track switch every 4 to 10 minutes keeps link fetches far apart.
-        play(api, stop, stats, url, track, random.uniform(240, 600))
+        play(api, stop, stats, url, track, random_source().uniform(240, 600))
 
 
 def video(api, lib, stop, stats):
@@ -288,7 +314,9 @@ def video(api, lib, stop, stats):
             continue
         if stop.is_set():
             return
-        url = prepare(api, stop, random.choice(tracks), HLS_CAN_PLAY)
+        url = prepare(api, stop, random_source().choice(tracks), HLS_CAN_PLAY)
+        if stop.is_set():
+            return
         if not url or not url.endswith(".m3u8"):
             stats.event("hls_failed")
             stop.wait(60)
@@ -301,7 +329,7 @@ def video(api, lib, stop, stats):
         lines = playlist.decode().splitlines()
         segments = [(float(lines[i].split(":")[1].rstrip(",")), lines[i + 1])
                     for i, line in enumerate(lines) if line.startswith("#EXTINF") and i + 1 < len(lines)]
-        end = time.monotonic() + random.uniform(600, 1200)
+        end = time.monotonic() + random_source().uniform(600, 1200)
         i = 0
         while i < len(segments) and time.monotonic() < end and not stop.is_set():
             length, uri = segments[i]
@@ -309,7 +337,7 @@ def video(api, lib, stop, stats):
             if status != 200:
                 stats.event(f"segment_{status}")
                 break
-            i += random.randrange(5, 40) if random.random() < 0.02 else 1
+            i += random_source().randrange(5, 40) if random_source().random() < 0.02 else 1
             stop.wait(length)
 
 
@@ -321,9 +349,11 @@ def latency_probe(api, stop, stats):
         stop.wait(5)
 
 
-def guarded(target, stop, stats, *args):
+def guarded(target, stop, stats, *args, seed=None):
     """Runs a worker loop again after an unexpected error, so the load does
     not shrink without the report saying so."""
+    if seed is not None:
+        _random.source = random.Random(seed)
     while not stop.is_set():
         try:
             target(*args)
@@ -361,8 +391,29 @@ def process_sample(pid):
             key, _, value = line.partition(":")
             status[key] = value.strip()
     kids = descendants(pid)
+    with open(f"/proc/{pid}/stat") as f:
+        fields = f.read().rsplit(")", 1)[1].split()
+    live_child_ticks = 0
+    for child, _ in kids:
+        try:
+            with open(f"/proc/{child}/stat") as f:
+                child_fields = f.read().rsplit(")", 1)[1].split()
+            live_child_ticks += sum(int(v) for v in child_fields[11:15])
+        except FileNotFoundError:
+            pass
+    rss_kib = int(status["VmRSS"].split()[0])
+    swap_kib = int(status["VmSwap"].split()[0])
     return {
-        "rss_mib": round(int(status["VmRSS"].split()[0]) / 1024, 1),
+        "rss_mib": round(rss_kib / 1024, 1),
+        "swap_mib": round(swap_kib / 1024, 1),
+        # Paging out retained buffers is not allocator release.
+        "rss_plus_swap_mib": round((rss_kib + swap_kib) / 1024, 1),
+        "hwm_mib": round(int(status["VmHWM"].split()[0]) / 1024, 1),
+        "cpu_seconds": (int(fields[11]) + int(fields[12])) / os.sysconf("SC_CLK_TCK"),
+        "reaped_children_cpu_seconds": (int(fields[13]) + int(fields[14])) / os.sysconf("SC_CLK_TCK"),
+        "live_children_cpu_seconds": live_child_ticks / os.sysconf("SC_CLK_TCK"),
+        "start_ticks": int(fields[19]),
+        "loadavg": list(os.getloadavg()),
         "threads": int(status["Threads"]),
         "fds": len(os.listdir(f"/proc/{pid}/fd")),
         "children": len(kids),
@@ -418,14 +469,25 @@ def main():
     parser.add_argument("--user", required=True)
     parser.add_argument("--password-file", required=True, help="read by this program, never printed")
     parser.add_argument("--data-dir", required=True, help="the server's data directory, read only")
-    parser.add_argument("--unit", required=True, help="the server's user systemd unit")
-    parser.add_argument("--root", required=True, help="where listeners pick tracks")
+    process = parser.add_mutually_exclusive_group(required=True)
+    process.add_argument("--unit", help="the server's user systemd unit")
+    process.add_argument("--pid", type=int, help="sample this isolated server instead of a unit")
+    parser.add_argument("--log-file", help="server log required with --pid for the throttle guard")
+    parser.add_argument("--root", required=True, action="append",
+                        help="repeat to distribute listeners across roots")
     parser.add_argument("--rescan-root", help="scanned once halfway through")
     parser.add_argument("--listeners", type=int, default=3)
     parser.add_argument("--hours", type=float, default=3.5)
     parser.add_argument("--warmup-minutes", type=float, default=20)
     parser.add_argument("--sample-seconds", type=float, default=30)
+    parser.add_argument("--cooldown-seconds", type=float, default=60)
+    parser.add_argument("--seed", type=int)
     args = parser.parse_args()
+    if args.pid is not None and (args.pid <= 0 or not args.log_file):
+        parser.error("--pid must be positive and requires --log-file")
+    if args.listeners < len(args.root) or args.hours <= 0 or args.sample_seconds <= 0 or args.cooldown_seconds < 0:
+        parser.error("each root needs a listener, durations must be positive, and cooldown nonnegative")
+    random.seed(args.seed)
 
     stats = Stats()
     api = Api(args.url, stats)
@@ -436,33 +498,58 @@ def main():
     if status != 200:
         sys.exit(f"login failed: {status}")
     api.token = body["token"]
-    pid = int(subprocess.run(["systemctl", "--user", "show", "-p", "MainPID", "--value", args.unit],
-                             capture_output=True, text=True).stdout.strip())
+    pid = args.pid if args.pid is not None else int(subprocess.run(
+        ["systemctl", "--user", "show", "-p", "MainPID", "--value", args.unit],
+        capture_output=True, text=True, check=True).stdout.strip())
     if pid == 0:
         sys.exit(f"{args.unit} is not running")
     with open(os.path.join(args.data_dir, "config.toml"), "rb") as f:
         budget = tomllib.load(f).get("cache", {}).get("max_bytes", "20GB")
     since = time.strftime("%Y-%m-%d %H:%M:%S")
-    if throttled_since(args.unit, since) is None:
-        sys.exit(f"cannot read the log of {args.unit}, so throttling would go unnoticed")
+    def check_throttle():
+        if args.pid is None:
+            return throttled_since(args.unit, since)
+        try:
+            with open(args.log_file) as log:
+                return "provider is throttling" in log.read()
+        except OSError:
+            return None
+
+    if check_throttle() is None:
+        sys.exit("cannot read the server log, so throttling would go unnoticed")
     stop = threading.Event()
-    lib = Library(api, args.root, stop)
-    jobs = [(listener, (api, lib, stop, stats, i == 0)) for i in range(args.listeners)]
-    jobs += [(video, (api, lib, stop, stats)), (latency_probe, (api, stop, stats))]
-    workers = [threading.Thread(target=guarded, args=(job, stop, stats, *job_args), daemon=True)
-               for job, job_args in jobs]
+    libs = [Library(api, root, stop) for root in args.root]
+    if any(lib.total == 0 for lib in libs):
+        sys.exit("every selected root must contain synthetic works")
+    jobs = [(listener, (api, libs[i % len(libs)], stop, stats, i == 0)) for i in range(args.listeners)]
+    jobs += [(video, (api, libs[0], stop, stats)), (latency_probe, (api, stop, stats))]
+    before = process_sample(pid)
+
+    def sample_process():
+        sample = process_sample(pid)
+        if sample["start_ticks"] != before["start_ticks"]:
+            sys.exit("server PID was reused during the measurement")
+        return sample
+
+    # Separate streams keep thread scheduling from changing a seeded workload.
+    workers = [threading.Thread(target=guarded, args=(job, stop, stats, *job_args), daemon=True,
+                                kwargs={"seed": None if args.seed is None else args.seed + i})
+               for i, (job, job_args) in enumerate(jobs)]
     for worker in workers:
         worker.start()
 
     start = time.monotonic()
     duration = args.hours * 3600
     samples, rescanned, throttled, blind = [], False, False, False
+    latencies = []
     while time.monotonic() - start < duration:
-        time.sleep(args.sample_seconds)
+        time.sleep(min(args.sample_seconds, max(0, duration - (time.monotonic() - start))))
         elapsed = time.monotonic() - start
-        sample = {"t": round(elapsed), **process_sample(pid),
+        window = stats.take_latencies()
+        latencies.extend(window)
+        sample = {"t": round(elapsed), **sample_process(),
                   "cache_mib": round(cache_bytes(args.data_dir) / 2**20, 1),
-                  "api_p95_ms": p95(stats.take_latencies())}
+                  "api_p95_ms": p95(window)}
         samples.append(sample)
         print(json.dumps(sample), file=sys.stderr, flush=True)
         if args.rescan_root and not rescanned and elapsed > duration / 2:
@@ -471,7 +558,7 @@ def main():
             for task_id in (body or {}).get("task_ids", []):
                 stats.task(task_id)
             rescanned = True
-        seen = throttled_since(args.unit, since)
+        seen = check_throttle()
         if seen is None:
             blind = True
             break
@@ -479,18 +566,43 @@ def main():
             throttled = True
             break
     stop.set()
+    load_seconds = time.monotonic() - start
+    load_end = sample_process()
     if throttled or blind:
         # Server tasks outlive the workers, so stop them from reaching the
         # provider too.
         cancel_tasks(api, stats)
     for worker in workers:
         worker.join(timeout=60)
-    time.sleep(60)
-    after = process_sample(pid)
+    latencies.extend(stats.take_latencies())
+    cooldown = []
+    cooling = time.monotonic()
+    while time.monotonic() - cooling < args.cooldown_seconds:
+        time.sleep(min(args.sample_seconds, max(0, args.cooldown_seconds - (time.monotonic() - cooling))))
+        sample = {"idle_seconds": round(time.monotonic() - cooling), **sample_process()}
+        cooldown.append(sample)
+        print(json.dumps(sample), file=sys.stderr, flush=True)
+    after = sample_process()
 
     steady = [s for s in samples if s["t"] >= args.warmup_minutes * 60]
     report = {
         "hours": round((time.monotonic() - start) / 3600, 2),
+        "load_seconds": load_seconds,
+        "cpu_seconds_per_load_hour": (load_end["cpu_seconds"] - before["cpu_seconds"]) * 3600 / load_seconds,
+        "reaped_children_cpu_seconds_per_load_hour": (
+            load_end["reaped_children_cpu_seconds"] - before["reaped_children_cpu_seconds"]
+        ) * 3600 / load_seconds,
+        "children_cpu_seconds_per_load_hour": (
+            load_end["reaped_children_cpu_seconds"] + load_end["live_children_cpu_seconds"]
+            - before["reaped_children_cpu_seconds"] - before["live_children_cpu_seconds"]
+        ) * 3600 / load_seconds,
+        "before": before,
+        "load_end": load_end,
+        "cooldown": cooldown,
+        "api_latency_ms": {"p50": percentile(latencies, 0.50),
+                           "p95": percentile(latencies, 0.95),
+                           "p99": percentile(latencies, 0.99),
+                           "samples": latencies},
         "stopped_on_throttle": throttled,
         "stopped_log_unreadable": blind,
         "status_codes": stats.codes,
