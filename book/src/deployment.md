@@ -83,6 +83,8 @@ docker compose -f .devcontainer/compose.yml run --rm --service-ports dev
 
 镜像构建时运行一次 `nix develop`，随后用 `nix print-dev-env --json` 导出环境。导出器去掉临时构建目录和 HOME 等进程身份变量，保留编译器参数、字体和浏览器路径。登录与非登录 Bash、`sh`、容器入口以及绕过入口的 `docker exec` 工具调用都加载预先导出的环境，不在进入时调用 Nix 或下载开发工具。开发环境通过 Nix profile 保留，后续垃圾回收不会删掉其闭包。
 
+复制 Nix 时就把 `/nix` 的所有者设为 uid/gid 1000，开发闭包也由 `dev` 用户构建。闭包生成后不再递归修改 store 的所有者，避免 Docker 把整份闭包复制到新的文件层。
+
 昂贵的环境层只复制 `flake.nix`、`flake.lock`、`nix/dev-shell.nix` 和回退字体的 Nix、Python 文件。应用源码绑定到 `/workspace`，不参与这一层的缓存键。更改开发环境后需要重新构建镜像。容器不设置 Cargo 构建目录，仓库 `.cargo/config.toml` 中的 mold 链接参数仍生效。首次前端依赖安装仍运行 `pnpm install --frozen-lockfile`，这不是进入容器时的自动步骤。
 
 ## 构建
@@ -111,6 +113,10 @@ docker compose -f .devcontainer/compose.yml run --rm --service-ports dev
 
 这个包不包含 ffmpeg 和 ffprobe。运行时仍按 `media.ffmpeg`、`media.ffprobe` 的配置或 PATH 查找它们，与普通 Cargo 构建相同。媒体能力的最低要求由 `nix/ffmpeg.nix` 的检查列出，只有二进制能够启动不代表转码已经可用。
 
+CLI 的 `serve` 每次启动时在后台检查一次配置的工具，不等待检查完成，也不把结果纳入 `/api/ready`。其他子命令和桌面嵌入服务不运行这项检查。每条命令最多运行 5 秒，超时后终止子进程。检查先运行两个工具的 `-version`，再读取 ffmpeg 的编码器、封装器和滤镜列表，确认 `libx264`、`aac`、`pcm_s16le`，`hls`、`mpegts`、`mp4`、`s16le`，以及 `scale`、`asplit`、`ebur128`、`anullsink`、`aresample`、`aformat` 存在。
+
+工具不可执行、查询失败、超时或缺少组件时，每个问题记录一条 WARN，包含尝试的可执行文件路径、受影响功能和 `media.ffmpeg` 或 `media.ffprobe` 配置键。默认裸文件名表示按 PATH 查找。检查失败不阻止启动，浏览器原生支持的格式仍可播放。组件列表只能提前发现缺失，不能证明所有输入都能解码，也不能代替实际转码测试。发行版的精简包可能缺少 `libx264`，需要安装完整构建或配置另一份 ffmpeg。
+
 静态包保留锁定的 musl 1.2.6 默认 mallocng 分配器，不另加全局分配器。`MALLOC_ARENA_MAX` 限制的是 glibc arena，对这个包无效，不能照搬 Docker 的环境变量当作内存优化。当前没有等负载的测量证明更换分配器有收益，也不据启动检查推断长期 RSS。远端并发转发的浸泡比较仍需使用合成数据，见[测试与验证](testing.md#常驻内存的增长)。
 
 ### 嵌入前端
@@ -135,6 +141,10 @@ NixOS 模块管理服务账号、只读配置、数据目录和 systemd 单元�
 迁移失败会退出，systemd 每 5 秒重试，5 分钟内失败 5 次后保持失败状态。不能因重启策略掩盖迁移错误，也不能把服务可就绪当成管理员、媒体库或外部连接已配置成功。
 
 `nix/test.nix` 在虚拟机中检查模块启动、权限、账号、运行时备份和恢复，并用另一节点验证本机 PostgreSQL 与管理命令的目标一致性。平台范围见[测试与验证](testing.md)。
+
+普通 Linux 的 systemd 单元保存在 `packaging/systemd/kikoeru-neo.service`，运行 `/usr/local/bin/kikoeru-neo` 并读取 `/etc/kikoeru-neo/config.toml`。安装者创建专用系统用户，systemd 用 `StateDirectory` 创建属于它的 `/var/lib/kikoeru-neo`，权限为 `0700`。单元沿用 NixOS 模块的重启策略和适用的沙箱限制，保留 systemd 默认 PATH，因此可以找到 `/usr/bin/ffmpeg` 和 `/usr/bin/ffprobe`。
+
+首次启动后须等待 `/api/ready` 成功，再运行管理命令，避免与建库迁移并发。管理命令以同一用户运行，通过 `env -i` 显式提供 `KIKOERU_DATA_DIR`、`KIKOERU_CONFIG` 和系统 PATH，并在 shell 中设置 `umask 077`，避免继承管理员的数据库覆盖变量。备份目标放在数据目录之外，由安装者创建私有父目录。`nix/systemd-test.nix` 安装仓库中的原始单元和静态包，验证这套命令、权限、真实响度分析、停服备份和缺少 ffmpeg 时的告警，不代替各发行版的安装验证。
 
 ## 安全
 
@@ -179,7 +189,7 @@ NixOS 模块管理服务账号、只读配置、数据目录和 systemd 单元�
 
 ### 发布
 
-发布工作流的目标是 `ghcr.io/qwerchin/kikoeru-neo`，目前只发布 x86_64 镜像。镜像的 `org.opencontainers.image.source` 指向仓库，`org.opencontainers.image.licenses` 为 `GPL-3.0-or-later`。source label 让包关联仓库并继承访问权限，但不继承 public 可见性。GHCR 首次创建包仍默认 private，维护者须在包设置中改为 public，并验证匿名拉取，规则见 [GitHub 文档](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)。本分支不创建标签或发布产物，合并后的首次目标标签是 `v0.1.0`。
+发布工作流的目标是 `ghcr.io/qwerchin/kikoeru-neo`，目前只发布 x86_64 镜像。镜像的 `org.opencontainers.image.source` 指向仓库，`org.opencontainers.image.licenses` 为 `GPL-3.0-or-later`。source label 让包关联仓库并继承访问权限，但不继承 public 可见性。GHCR 首次创建包仍默认 private，维护者须在包设置中改为 public，并验证匿名拉取，规则见 [GitHub 文档](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)。
 
 - **标签。** `X.Y.Z` 固定一个版本，`X.Y` 指向该系列最新补丁，不发布 `latest`。需要可重复部署时固定完整版本或镜像摘要。
 - **触发。** `.github/workflows/release.yml` 响应 `vX.Y.Z` 标签，并允许手动重试已有标签。版本必须与 `Cargo.toml` 一致。工作流运行检查、构建镜像，再由 `scripts/ghcr-release.sh` 推送。

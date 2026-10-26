@@ -1,0 +1,51 @@
+[Unit]
+Description=kikoeru-neo
+Wants=network-online.target
+After=network-online.target
+# Stop retrying a failed migration after five starts in five minutes.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+ExecStart=/usr/local/bin/kikoeru-neo serve --config /etc/kikoeru-neo/config.toml
+User=kikoeru-neo
+Group=kikoeru-neo
+Environment=KIKOERU_DATA_DIR=/var/lib/kikoeru-neo
+StateDirectory=kikoeru-neo
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=5
+ReadWritePaths=/var/lib/kikoeru-neo
+
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+# Local roots may sit under /home, which the service only reads.
+ProtectHome=read-only
+PrivateTmp=true
+PrivateDevices=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+# RestrictSUIDSGID stays off. systemd cannot inspect openat2's
+# flags, so it refuses openat2 outright, and local roots would lose
+# the kernel's RESOLVE_BENEATH lookup. Without capabilities the
+# service could only mark files setuid to its own user, inside a
+# data directory nobody else can enter.
+LockPersonality=true
+RemoveIPC=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+
+[Install]
+WantedBy=multi-user.target

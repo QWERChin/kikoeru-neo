@@ -6,7 +6,7 @@
 
 let
   ffmpeg = pkgs.ffmpeg-headless.override {
-    # Encoders: the server only writes H.264 (libx264) and ffmpeg's own AAC.
+    # Encoders: H.264 (libx264), native AAC and PCM for waveform analysis.
     withAom = false;
     withMp3lame = false;
     withOpenapv = false;
@@ -96,7 +96,7 @@ in
       need decoders h264 hevc mpeg4 mpeg2video vp8 vp9 libdav1d wmv2 vc1 \
         aac mp3float flac alac opus vorbis ape wavpack tta dsd_lsbf ac3 eac3 dca \
         wmav2 amrnb amrwb speex pcm_s16le pcm_s24le pcm_f32le
-      need encoders libx264 aac
+      need encoders libx264 aac pcm_s16le
       need muxers hls mpegts mp4 s16le
       need filters scale asplit ebur128 anullsink aresample aformat
       protocols=$(ffmpeg -hide_banner -protocols 2>/dev/null | awk '{ print $1 }')

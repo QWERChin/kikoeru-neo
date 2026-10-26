@@ -50,6 +50,7 @@ pnpm test
 | `docker-rootfs` | 检查 Dockerfile 使用的闭包归档，验证私有卷为空、uid/gid 1000、0700，以及工具链接和 `/tmp` 权限。 |
 | `dockerfile` | 将最终阶段的入口、参数、用户、环境、端口、卷、健康检查和标签与共享 Nix 配置比较，并验证字段漂移会被发现。 |
 | `neo-server-static` | 仅在 x86_64 Linux 上检查 musl ELF 没有 INTERP 或 NEEDED，在临时数据目录创建管理员，启动后取得 `/api/ready` 和嵌入首页的 200。不测试媒体转码。 |
+| `systemd` | 安装仓库中的普通 Linux 单元和静态包，通过默认 PATH 使用 `/usr/bin` 的媒体工具，验证管理员、就绪、0700 所有权、真实响度与波形、停服备份，以及移除 ffmpeg 后仍就绪并告警。不证明所有发行版的 systemd 或媒体包都兼容。 |
 | `docker-migrate` | 用 bats 和假 Docker 命令检查旧容器迁移脚本的挂载、权限、终端与失败清理行为。 |
 | `docker` | NixOS VM 中运行真实 Docker，用合成旧容器验证迁移、启动、登录和中断清理，不启动源容器。 |
 | `nixos` | 启动 NixOS 模块，检查权限、管理员、备份与恢复、重启后密钥，以及本机 PostgreSQL 配置和数据库复制。 |

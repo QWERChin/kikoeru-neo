@@ -407,9 +407,7 @@
           cargoTestExtraArgs = "--test db --test legacy_state --test pg_schema --test db_copy --test scan --test metadata -- --include-ignored";
           preBuild = copyWeb pkgs;
         });
-      # The release binary. Only the package stamps the commit into
-      # /api/version: a stamp would make every check and the e2e suite rebuild
-      # on each commit, and differ between a dirty and a clean tree.
+      # A standalone musl binary; administrators supply ffmpeg separately.
       neoServerStatic = pkgs: { stamped }:
         let
           craneLib = crane.mkLib pkgs.pkgsStatic;
@@ -429,6 +427,9 @@
               then toString ((self.lastModified or 0) * 1000) else "";
           };
         });
+      # The release binary. Only the package stamps the commit into
+      # /api/version: a stamp would make every check and the e2e suite rebuild
+      # on each commit, and differ between a dirty and a clean tree.
       neoServer = pkgs: { stamped }:
         let
           craneLib = crane.mkLib pkgs;
@@ -520,6 +521,11 @@
         neo-server-static = import ./nix/static-check.nix {
           inherit pkgs;
           server = neoServerStatic pkgs { stamped = false; };
+        };
+        systemd = import ./nix/systemd-test.nix {
+          inherit pkgs;
+          server = neoServerStatic pkgs { stamped = false; };
+          ffmpeg = (serverFfmpeg pkgs).package;
         };
         rust-lint = rustLint pkgs;
         rust-test = rustTest pkgs;
