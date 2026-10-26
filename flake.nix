@@ -513,6 +513,7 @@
           server = neoServer pkgs { stamped = false; };
         };
         github-release = import ./nix/github-release-check.nix { inherit pkgs; };
+        docker-smoke = import ./nix/docker-smoke-check.nix { inherit pkgs; };
         codex-review = import ./nix/codex-review.nix { inherit pkgs; };
         docker-migrate = (import ./nix/docker-migrate.nix { inherit pkgs; }).check;
         ffmpeg = (serverFfmpeg pkgs).check;

@@ -62,7 +62,7 @@ pnpm test
 
 GitHub Actions 的 `CI` 工作流在托管 runner 上按检查分别运行，检查集合来自 flake 的 `x86_64-linux` 属性。只改书籍、用户指南、贡献指南、README 或 `AGENTS.md` 时，工作流会跳过，因此文档改动仍需在本地构建书籍。构建沙箱可能没有 `/usr/bin/env`，测试脚本使用 `#!/bin/sh`。需要写用户目录的检查必须指向临时目录，不依赖 `/homeless-shelter` 可写。
 
-相关构建输入变化时，CI 还在 `ubuntu-latest` 上从头构建服务和开发容器。`scripts/docker-smoke.sh` 使用临时配置和新命名卷，创建合成管理员，等待 healthy，再确认 `/api/ready` 为 200。`scripts/devcontainer-smoke.sh` 在断网容器中验证 Bash 的三种启动方式、`sh` 和直接 `docker exec cargo`，并用 mold 编译一个小程序。它们不证明 aarch64 或 IDE 远端服务已实测，IDE 与原生 ARM64 验证需另行记录。
+相关构建输入变化时，CI 还在 `ubuntu-latest` 上从头构建服务和开发容器。`scripts/docker-smoke.sh` 使用临时配置和新命名卷，等容器 healthy 且 `/api/ready` 为 200 后才创建合成管理员。管理命令也会运行迁移，而 SQLite 的迁移锁不让两个进程排队，所以首次启动的迁移结束前不能在另一个进程里打开数据库。`docker-smoke` 检查用假 docker 命令验证这个顺序和失败时的清理。`scripts/devcontainer-smoke.sh` 在断网容器中验证 Bash 的三种启动方式、`sh` 和直接 `docker exec cargo`，并用 mold 编译一个小程序。它们不证明 aarch64 或 IDE 远端服务已实测，IDE 与原生 ARM64 验证需另行记录。
 
 ## Rust 与合同测试
 

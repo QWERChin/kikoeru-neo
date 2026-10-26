@@ -55,6 +55,20 @@ def publish(api, tag, assets):
     if api.request(f"/git/ref/tags/{tag}") is None:
         raise RuntimeError(f"tag {tag} does not exist")
     release = api.request(f"/releases/tags/{tag}")
+    if release is None:
+        # The tag endpoint only returns published releases. Search every
+        # page for drafts so retries cannot create or choose a duplicate.
+        page = 1
+        while True:
+            batch = api.request(f"/releases?per_page=100&page={page}")
+            for candidate in batch:
+                if candidate["draft"] and candidate["tag_name"] == tag:
+                    if release is not None:
+                        raise RuntimeError(f"multiple draft releases for tag {tag}; refusing to choose")
+                    release = candidate
+            if len(batch) < 100:
+                break
+            page += 1
     existing = {}
     if release is not None:
         page = 1
