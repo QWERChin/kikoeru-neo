@@ -5,6 +5,7 @@
 mod analysis;
 mod cache;
 mod decide;
+mod diagnostics;
 mod error;
 mod hls;
 mod input;

@@ -207,6 +207,17 @@ pub struct MediaConfig {
     pub video_transcode: bool,
 }
 
+impl MediaConfig {
+    /// The configured executables, or bare names resolved through PATH.
+    pub fn tools(&self) -> neo_media::Tools {
+        let default = neo_media::Tools::default();
+        neo_media::Tools {
+            ffmpeg: self.ffmpeg.clone().unwrap_or(default.ffmpeg),
+            ffprobe: self.ffprobe.clone().unwrap_or(default.ffprobe),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CacheConfig {
     pub max_bytes: u64,

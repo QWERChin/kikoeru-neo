@@ -91,6 +91,12 @@ async fn run(cli: Cli) -> Result<()> {
             }
             let data_dir =
                 DataDir::prepare_for(&paths.data_dir, &config.database(&paths.data_dir))?;
+            let tools = config.media.tools();
+            tokio::spawn(async move {
+                for warning in tools.startup_warnings().await {
+                    tracing::warn!("{warning}");
+                }
+            });
             serve::run(data_dir, config).await
         }
         Command::User(command) => {

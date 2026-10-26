@@ -3,7 +3,7 @@ use std::{net::SocketAddr, path::Path, sync::Arc, time::Duration};
 use anyhow::{Context, Result};
 use axum::serve::ListenerExt;
 use neo_db::{Db, roots, server_settings};
-use neo_media::{Tools, TranscodeCache};
+use neo_media::TranscodeCache;
 use neo_scanner::metadata::{
     self, AsmrOneConfig, AsmrOneProvider, CoverDirs, DlsiteConfig, DlsiteProvider, HvdbConfig,
     HvdbProvider, ProviderChain, ProxyChoice,
@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     autoscan,
-    config::{Config, MediaConfig, MetadataConfig, MetadataFallback, MetadataSource},
+    config::{Config, MetadataConfig, MetadataFallback, MetadataSource},
     datadir::DataDir,
     http::{self, AppState, Media, RootEntry, WebSource},
     roots as library,
@@ -185,7 +185,7 @@ pub async fn start(data_dir: DataDir, config: Config, web: Option<WebSource>) ->
             config.cache.min_free_bytes,
         )
         .context("cannot open the transcode cache")?
-        .with_tools(tools(&config.media)),
+        .with_tools(config.media.tools()),
         probe_slots: Arc::new(Semaphore::new(config.media.light_jobs as usize)),
         queue_limit: config.media.queue_limit as usize,
         job_timeout: config.media.job_timeout,
@@ -358,16 +358,6 @@ fn metadata_chain(config: &MetadataConfig, proxy: &ProxyChoice) -> Result<Provid
     let hvdb = HvdbProvider::new(hvdb)
         .map_err(|e| anyhow::anyhow!("cannot set up the hvdb client: {e}"))?;
     Ok(chain.with_voice_actors(Arc::new(hvdb)))
-}
-
-/// The configured ffmpeg and ffprobe, or the bare names, which `PATH`
-/// resolves.
-fn tools(media: &MediaConfig) -> Tools {
-    let default = Tools::default();
-    Tools {
-        ffmpeg: media.ffmpeg.clone().unwrap_or(default.ffmpeg),
-        ffprobe: media.ffprobe.clone().unwrap_or(default.ffprobe),
-    }
 }
 
 /// The roots the server starts with and the storage of each one it can
