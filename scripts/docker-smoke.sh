@@ -18,8 +18,8 @@ docker run -d --name "$name" --read-only --tmpfs /tmp \
   -p 127.0.0.1::8888 \
   -v "$name-data:/data" -v "$name-backup:/backup" \
   -v "$tmp/config.toml:/config/config.toml:ro" "$image"
-printf 'synthetic-admin-password\n' | docker exec -i -e KIKOERU_CONFIG=/config/config.toml "$name" \
-  kikoeru-neo user create --admin admin --password-stdin
+# Management commands also run migrations, so wait for first-start
+# migrations to finish before opening the database in another process.
 for _ in $(seq 1 90); do
   health=$(docker inspect -f '{{.State.Health.Status}}' "$name")
   [ "$health" != healthy ] || break
@@ -27,6 +27,9 @@ for _ in $(seq 1 90); do
 done
 [ "$health" = healthy ]
 port=$(docker port "$name" 8888/tcp)
+test "$(curl -sS -o /dev/null -w '%{http_code}' "http://$port/api/ready")" = 200
+printf 'synthetic-admin-password\n' | docker exec -i -e KIKOERU_CONFIG=/config/config.toml "$name" \
+  kikoeru-neo user create --admin admin --password-stdin
 test "$(curl -sS -o /dev/null -w '%{http_code}' "http://$port/api/ready")" = 200
 test "$(docker exec "$name" stat -c '%u:%g:%a' /data)" = 1000:1000:700
 test "$(docker exec "$name" stat -c '%u:%g:%a' /backup)" = 1000:1000:700
