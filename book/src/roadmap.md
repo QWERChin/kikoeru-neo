@@ -47,6 +47,9 @@
 
 ## 验证与资源测量
 
+- [ ] 首个 `v0.1.0` 发布需要在合并后创建标签，确认 GHCR 包为 public 且可匿名拉取，并下载校验 GitHub Release 的静态资产。状态：构建和发布流程已实现，尚未实际发布。
+- [ ] 根 Dockerfile 和 Dev Container 需要在真实 Docker 主机、原生 aarch64 主机及 VS Code、JetBrains 中验证。状态：Ubuntu CI 冒烟已定义，本地 Nix 检查不能代替这些运行边界。
+- [ ] musl mallocng 与 glibc 包尚无同负载的长期并发转发测量。状态：静态包保留默认分配器，不能从启动检查声称 RSS 或吞吐改善。
 - [ ] `scripts/soak.py` 对没有时长的强制转码轨道仍按源扩展名估算读取码率，不能准确模拟 AAC 输出。状态：下次使用前按输出码率修正。
 - [ ] 假数据浏览器测试缺少可比较的资源测量。状态：待用 `scripts/check-memory.py e2e-mock` 在可控负载下记录峰值和用时。
 - [ ] PostgreSQL 测试在高负载下的连接池超时缺少稳定复现。状态：待在合成环境保留连接池等待与资源压力证据，不能直接归因于产品逻辑。

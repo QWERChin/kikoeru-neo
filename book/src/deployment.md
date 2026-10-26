@@ -59,7 +59,7 @@ scripts/sqlx-prepare.sh
 
 脚本在一个临时目录里建一个 SQLite 文件、起一个只监听 Unix socket 的 PostgreSQL，各自跑完迁移，再分别在两个 crate 里运行 `cargo sqlx prepare`，结束时删掉临时目录。两份元数据不能合成仓库根目录下的一份：同一条 SQL 的文件名相同，一个后端的会覆盖另一个的。
 
-`nix flake check` 用 `cargo sqlx prepare --check` 确认两份都没有过期，`scripts/sqlx-prepare.sh --check` 在本地做同样的检查。Nix 包把提交号和提交时间写进 `/api/version`。`build_time` 用的是提交时间而不是实际构建时间，避免实际构建时钟改变包内容。直接用 cargo 构建时这两项为 `null`。只有 `packages.neo-server` 写入提交号，`nix flake check` 里的检查和端到端测试用的构建都不带提交号，所以只改设计书的提交不会让它们重新构建。
+`nix flake check` 用 `cargo sqlx prepare --check` 确认两份都没有过期，`scripts/sqlx-prepare.sh --check` 在本地做同样的检查。Nix 的 `neo-server` 和 `neo-server-static` 发布包把提交号和提交时间写进 `/api/version`。`build_time` 用的是提交时间而不是实际构建时间，避免实际构建时钟改变包内容。直接用 cargo 或没有 Git 元数据的源码目录构建时这两项为 `null`。检查和端到端测试用的构建不带提交号，所以只改设计书的提交不会让它们重新构建。
 
 Rust 构建用 crane。第三方依赖单独构建。在工具链、构建参数、锁文件和相关输入均相同时可复用依赖产物，不能仅凭 `Cargo.lock` 未变保证缓存命中。Clippy、测试和 neo-typegen 用 dev profile，省掉 release profile 的 LTO，只有发布包用 release。
 
@@ -69,6 +69,21 @@ Rust 构建用 crane。第三方依赖单独构建。在工具链、构建参数
 cd web && pnpm dev   # 前端开发服务器，把 /api 代理到后端
 mdbook serve book    # 本地预览设计书
 ```
+
+### Docker 开发环境
+
+`.devcontainer/` 为使用 Docker 的贡献者提供同一个开发环境。VS Code 可以重新在容器中打开仓库，JetBrains 可以使用仓库中的 Dev Container 配置。不使用 IDE 时，从仓库根目录运行：
+
+```sh
+docker compose -f .devcontainer/compose.yml build
+docker compose -f .devcontainer/compose.yml run --rm --service-ports dev
+```
+
+容器使用 Debian 的 glibc 和 FHS 路径承载 IDE 远端服务，以 uid/gid 1000 写入绑定的源码目录。宿主用户不是 1000 时，须先协调绑定目录的权限，配置不自动改宿主文件的所有者。前端需运行 `pnpm dev --host 0.0.0.0`，后端需监听 `0.0.0.0:8888`，这样才能通过转发的 5173 和 8888 端口访问。
+
+镜像构建时运行一次 `nix develop`，随后用 `nix print-dev-env --json` 导出环境。导出器去掉临时构建目录和 HOME 等进程身份变量，保留编译器参数、字体和浏览器路径。登录与非登录 Bash、`sh`、容器入口以及绕过入口的 `docker exec` 工具调用都加载预先导出的环境，不在进入时调用 Nix 或下载开发工具。开发环境通过 Nix profile 保留，后续垃圾回收不会删掉其闭包。
+
+昂贵的环境层只复制 `flake.nix`、`flake.lock`、`nix/dev-shell.nix` 和回退字体的 Nix、Python 文件。应用源码绑定到 `/workspace`，不参与这一层的缓存键。更改开发环境后需要重新构建镜像。容器不设置 Cargo 构建目录，仓库 `.cargo/config.toml` 中的 mold 链接参数仍生效。首次前端依赖安装仍运行 `pnpm install --frozen-lockfile`，这不是进入容器时的自动步骤。
 
 ## 构建
 
@@ -89,6 +104,14 @@ mdbook serve book    # 本地预览设计书
 生产包用 `nix build` 构建，首次运行步骤见[快速开始](https://github.com/QWERChin/kikoeru-neo/blob/main/docs/zh-CN/quickstart.md)。
 
 设计书用 `nix build .#book` 单独构建。
+
+### Linux 单文件服务端
+
+`nix build .#neo-server-static` 在 x86_64 Linux 上用 `pkgsStatic` 构建 musl ELF，启用 `embed-web`，不带启动包装脚本、动态加载器或共享库依赖。SQLite 随 SQLx 编译，PostgreSQL 支持保持启用。产物是 `result/bin/kikoeru-neo`。
+
+这个包不包含 ffmpeg 和 ffprobe。运行时仍按 `media.ffmpeg`、`media.ffprobe` 的配置或 PATH 查找它们，与普通 Cargo 构建相同。媒体能力的最低要求由 `nix/ffmpeg.nix` 的检查列出，只有二进制能够启动不代表转码已经可用。
+
+静态包保留锁定的 musl 1.2.6 默认 mallocng 分配器，不另加全局分配器。`MALLOC_ARENA_MAX` 限制的是 glibc arena，对这个包无效，不能照搬 Docker 的环境变量当作内存优化。当前没有等负载的测量证明更换分配器有收益，也不据启动检查推断长期 RSS。远端并发转发的浸泡比较仍需使用合成数据，见[测试与验证](testing.md#常驻内存的增长)。
 
 ### 嵌入前端
 
@@ -136,7 +159,9 @@ NixOS 模块管理服务账号、只读配置、数据目录和 systemd 单元�
 
 ## Docker
 
-镜像由 `nix/docker.nix` 的 `streamLayeredImage` 生成，输出的是写镜像流的脚本，不把完整 tar 固定存入 Nix store。服务层与依赖层分开，使小的代码更新可以复用依赖层。构建、载入和 Compose 步骤见[Docker 安装](https://github.com/QWERChin/kikoeru-neo/blob/main/docs/zh-CN/install-docker.md)。
+只安装 Docker 的机器可以在仓库根目录运行 `docker build -t kikoeru-neo .`。根目录 Dockerfile 在按标签和多架构摘要固定的 Nix builder 中构建 `docker-rootfs`，最终 `FROM scratch` 只复制运行闭包。x86_64 和 aarch64 都使用原生 builder，不做交叉模拟。`.dockerignore` 只允许构建输入进入上下文，不带 `.git` 或本地数据，因此该路径不写提交号和提交时间，也不提供提交号 build argument。
+
+原有 `nix/docker.nix` 仍用 `streamLayeredImage` 生成镜像流，服务层与依赖层分开。两条路径共用 `nix/docker-runtime.nix` 中的文件、权限命令和配置。`docker-rootfs` 用带数字所有者的 tar 保存运行闭包，因为 Nix store 目录本身不能保留 uid 1000 的所有权。Dockerfile 的静态元数据由 `dockerfile` 检查与共享配置逐项比较，修改版本号时也须同步版本 label。Dockerfile 的层布局不承诺与 Nix 镜像相同。构建、载入和 Compose 步骤见[Docker 安装](https://github.com/QWERChin/kikoeru-neo/blob/main/docs/zh-CN/install-docker.md)。
 
 ### 镜像的约定
 
@@ -154,7 +179,7 @@ NixOS 模块管理服务账号、只读配置、数据目录和 systemd 单元�
 
 ### 发布
 
-发布工作流的目标是 `ghcr.io/qwerchin/kikoeru-neo`，目前工作流构建 x86_64 镜像。仓库中的工作流定义不证明某个版本已经上传，也不决定镜像包的访问权限。部署前确认所选版本可拉取，不能拉取时可按上文从源码构建。
+发布工作流的目标是 `ghcr.io/qwerchin/kikoeru-neo`，目前只发布 x86_64 镜像。镜像的 `org.opencontainers.image.source` 指向仓库，`org.opencontainers.image.licenses` 为 `GPL-3.0-or-later`。source label 让包关联仓库并继承访问权限，但不继承 public 可见性。GHCR 首次创建包仍默认 private，维护者须在包设置中改为 public，并验证匿名拉取，规则见 [GitHub 文档](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)。本分支不创建标签或发布产物，合并后的首次目标标签是 `v0.1.0`。
 
 - **标签。** `X.Y.Z` 固定一个版本，`X.Y` 指向该系列最新补丁，不发布 `latest`。需要可重复部署时固定完整版本或镜像摘要。
 - **触发。** `.github/workflows/release.yml` 响应 `vX.Y.Z` 标签，并允许手动重试已有标签。版本必须与 `Cargo.toml` 一致。工作流运行检查、构建镜像，再由 `scripts/ghcr-release.sh` 推送。
@@ -162,9 +187,15 @@ NixOS 模块管理服务账号、只读配置、数据目录和 systemd 单元�
 - **并发。** 发布共用一个并发组，避免两个运行同时移动浮动标签。被排队规则取消或推送失败的运行需要重新触发，不能把触发成功当成发布完成。
 - **验证。** `ghcr-release` 检查使用假 skopeo，验证流程而不推送镜像。删除旧发布前应考虑仍固定这些版本的消费者，不复用已经发布过的版本号。
 
+同一标签还创建 GitHub Release，上传 `kikoeru-neo-X.Y.Z-x86_64-linux-musl` 和 `SHA256SUMS`。检查任务只有读取权限，镜像任务另授 `packages: write`，二进制任务另授 `contents: write`。所有外部 Actions 固定完整提交 SHA。
+
+`scripts/github-release.py` 要求标签已经存在且与 Cargo 版本一致。重试时复用已有 Release，下载同名资产比较实际 SHA-256，内容相同则保留，内容不同或 API 查询失败则停止，不自动替换。新 Release 先建为 draft，两个资产上传完后才发布。中断后可以补齐缺少的资产，再发布同一个 draft。`github-release` 检查通过假 API 验证这些分支，不接触 GitHub。
+
 ### 镜像的检查
 
 `nix flake check` 里的 `docker-image` 检查不需要 Docker：它把镜像流写成 tar，检查用户、入口、默认参数、环境变量、卷、端口和健康检查的配置，检查 `/data` 是空的、`0700`、属于 1000，`/backup` 存在，`/tmp` 是 `1777`，neo-server 单独占一层，并用 `bash -n` 检查健康检查脚本。它把 neo-server 这一层和整个镜像的大小写进 `result/sizes.txt`。
+
+`docker-rootfs` 检查独立检查归档中的卷权限和可执行文件链接。`dockerfile` 检查比较 ENTRYPOINT、CMD、USER、ENV、EXPOSE、VOLUME、完整 HEALTHCHECK 和 LABEL，拒绝未覆盖的最终阶段指令。GitHub CI 另外在 Ubuntu 上原生构建两种 Dockerfile，并运行真实 Docker 冒烟测试。只有容器、Nix、Cargo、前端、合同和相关 CI 脚本等构建输入变化时才运行这两个昂贵任务，手动触发则总是运行。结构检查不能替代真实 Docker 的 COPY、卷初始化或 IDE 进入验证。
 
 ## 升级与版本恢复
 

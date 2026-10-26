@@ -1,5 +1,5 @@
-# Publishes the Docker image of a release tag to the package
-# ghcr.io/qwerchin/kikoeru-neo. See book/src/deployment.md (Chinese).
+# Publishes tagged images to ghcr.io/qwerchin/kikoeru-neo and standalone
+# servers to GitHub Releases. See book/src/deployment.md (Chinese).
 # Only X.Y.Z and X.Y are pushed, never latest. Existing X.Y.Z tags must
 # match the image config digest before a retry can update floating tags.
 
@@ -18,7 +18,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 # One release at a time, because the script reads X.Y right before it moves
 # it forward, and two runs at once could move it back. GitHub keeps only one
@@ -30,8 +29,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: checks and publish
+  checks:
+    name: release checks
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
@@ -44,9 +43,26 @@ jobs:
       # published. CI on main has usually cached their results already.
       - name: Flake checks
         run: |
-          checks=$(nix eval --raw .#checks.x86_64-linux --apply \
-            'c: toString (map (n: ".#checks.x86_64-linux.${n}") (builtins.attrNames c))')
-          nix build --no-link --keep-going --option log-lines 200 $checks
+          nix eval --raw .#checks.x86_64-linux --apply \
+            'c: builtins.concatStringsSep "\n" (map (n: ".#checks.x86_64-linux." + n) (builtins.attrNames c))' \
+            > "$RUNNER_TEMP/checks.txt"
+          mapfile -t checks < "$RUNNER_TEMP/checks.txt"
+          test "${#checks[@]}" -gt 0
+          nix build --no-link --keep-going --option log-lines 200 "${checks[@]}"
+
+  image:
+    name: publish image
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
+      - uses: ./.github/actions/nix
 
       # Built and pushed in this one job, so the image holds the neo-server
       # stamped with this commit. Only x86_64 is published.
@@ -61,3 +77,25 @@ jobs:
           nix run .#packages.x86_64-linux.kikoeru-neo-ghcr-release -- \
             --tag "$TAG" --image "$RUNNER_TEMP/image.tar"
           rm -f "$RUNNER_TEMP/image.tar"
+
+  binary:
+    name: publish standalone server
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
+      - uses: ./.github/actions/nix
+      - name: Publish immutable assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          nix build -o "$RUNNER_TEMP/static" .#packages.x86_64-linux.neo-server-static
+          python3 scripts/github-release.py --repo "$REPO" --tag "$TAG" \
+            --binary "$RUNNER_TEMP/static/bin/kikoeru-neo"

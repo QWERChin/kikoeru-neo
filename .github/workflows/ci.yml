@@ -37,10 +37,28 @@ jobs:
     timeout-minutes: 15
     outputs:
       checks: ${{ steps.list.outputs.checks }}
+      containers: ${{ steps.paths.outputs.containers }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - id: paths
+        name: Select Docker builds
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ] || [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]]; then
+            echo 'containers=true' >> "$GITHUB_OUTPUT"
+          else
+            git -c core.quotePath=false diff --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed-paths"
+            if grep -Eq '^(Dockerfile$|\.dockerignore$|\.devcontainer/|flake\.(nix|lock)$|Cargo\.(toml|lock)$|crates/|contract/|web/|nix/|\.cargo/config\.toml$|scripts/docker-smoke\.sh$|scripts/devcontainer-smoke\.sh$|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed-paths"; then
+              echo 'containers=true' >> "$GITHUB_OUTPUT"
+            else
+              echo 'containers=false' >> "$GITHUB_OUTPUT"
+            fi
+          fi
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
       # The list comes from the flake, so a new check runs here without
       # editing CI.
@@ -89,11 +107,36 @@ jobs:
             exit 1
           fi
 
+  containers:
+    name: Docker (${{ matrix.image }})
+    needs: list
+    if: needs.list.outputs.containers == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [server, dev]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build and smoke-test server
+        if: matrix.image == 'server'
+        run: |
+          docker build --no-cache --progress=plain -t kikoeru-neo:ci .
+          bash scripts/docker-smoke.sh kikoeru-neo:ci
+      - name: Build and smoke-test development environment
+        if: matrix.image == 'dev'
+        run: |
+          docker build --no-cache --progress=plain -f .devcontainer/Dockerfile -t kikoeru-neo-dev:ci .
+          bash scripts/devcontainer-smoke.sh kikoeru-neo-dev:ci
+
   # One status for the whole run, which a branch rule can require without
   # listing every check by name.
   all:
     name: flake checks
-    needs: [list, check]
+    needs: [list, check, containers]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -101,6 +144,9 @@ jobs:
       - env:
           LIST: ${{ needs.list.result }}
           CHECKS: ${{ needs.check.result }}
+          CONTAINERS: ${{ needs.containers.result }}
         run: |
-          echo "list: $LIST, checks: $CHECKS"
-          [ "$LIST" = success ] && [ "$CHECKS" = success ]
+          echo "list: $LIST, checks: $CHECKS, containers: $CONTAINERS"
+          [ "$LIST" = success ]
+          [ "$CHECKS" = success ]
+          [ "$CONTAINERS" = success ] || [ "$CONTAINERS" = skipped ]
