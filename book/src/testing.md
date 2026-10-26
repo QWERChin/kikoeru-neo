@@ -154,11 +154,11 @@ Windows 另有 WebView2 WebDriver 检查。Linux 的 WebDriver 测试可以单�
 
 ```sh
 nix build .#neo-server
-env -u KIKOERU_CONFIG -u KIKOERU_DATABASE_URL \
+env -u KIKOERU_CONFIG -u KIKOERU_DATABASE_URL -u KIKOERU_LISTEN \
   nix develop -c python3 scripts/bench.py --bin ./result/bin/kikoeru-neo > bench.json
 ```
 
-`bench.py` 建临时数据目录，生成合成作品和媒体，测空闲、并发播放、扫描和转码时的资源与延迟。可用 `--works`、`--tracks`、`--streams`、`--load-seconds` 改变负载，`--keep` 保留测试目录。比较结果时保持参数和缓存条件相同。脚本报告包含主机名与本地路径，公开报告时仅保留硬件级别、合成负载和指标。
+`bench.py` 建临时数据目录，生成合成作品和媒体，测空闲、并发播放、扫描和转码时的资源与延迟。可用 `--works`、`--tracks`、`--streams`、`--load-seconds` 改变负载，`--keep` 保留测试目录。比较结果时保持参数和缓存条件相同。转码缓存也存放波形，因此淘汰计数只比较 AAC 产物，容量计数仍包含所有缓存文件。脚本报告包含主机名与本地路径，公开报告时仅保留硬件级别、合成负载和指标。
 
 ### CI 的内存预算
 
@@ -166,12 +166,14 @@ env -u KIKOERU_CONFIG -u KIKOERU_DATABASE_URL \
 
 ### 浸泡测试
 
-`scripts/soak.py` 对正在运行的隔离测试服务模拟多个听众，执行 Range 读取、拖动、换轨、响度和波形请求、强制转码，以及可选的中途重扫。它需要服务的用户级 systemd 单元，用 `/proc` 采样资源。只应指向可丢弃的合成媒体库，不能把它描述成只读检查，因为它会创建任务并可触发扫描。
+`scripts/soak.py` 对正在运行的隔离测试服务模拟多个听众，执行 Range 读取、拖动、换轨、响度和波形请求、强制转码，以及可选的中途重扫。只应指向可丢弃的合成媒体库，不能把它描述成只读检查，因为它会创建任务并可触发扫描。
+
+默认通过服务的用户级 systemd 单元查找进程，用 `/proc` 采样资源。没有用户总线时，可用 `--pid PID --log-file FILE` 代替 `--unit`，本轮新建的服务日志仍用于发现限流。重复 `--root` 会把监听者分配到不同媒体库，`--seed` 为每个工作线程固定独立的随机序列，`--cooldown-seconds 600` 会在停止负载后继续采样十分钟。报告包含整个负载期间的 API 探针 p50、p95、p99、服务器及子进程 CPU 时间和主机负载平均值。RSS 与 swap 分别记录，同时保留两者之和，避免把换出误认为分配器释放了内存。
 
 ```sh
-python3 scripts/soak.py --url http://127.0.0.1:8890 --user admin \
-  --password-file /run/user/1000/neo-test-password \
-  --data-dir /srv/kikoeru-neo-test --unit neo-synthetic.service \
+python3 scripts/soak.py --url http://127.0.0.1:18900 --user admin \
+  --password-file /tmp/neo-synthetic/password \
+  --data-dir /tmp/neo-synthetic/data --unit neo-synthetic.service \
   --root local --rescan-root cloud --listeners 3 --hours 1
 ```
 
@@ -181,7 +183,40 @@ python3 scripts/soak.py --url http://127.0.0.1:8890 --user admin \
 
 远端转发会在多个运行时线程上产生短期分配。排查 RSS 增长时，应比较分配器仍在使用的内存、空闲 arena、句柄和子进程数量，区分碎片与泄漏。NixOS 模块和 Docker 镜像设置 `MALLOC_ARENA_MAX=2` 限制 glibc arena 数量，这不替代缓存预算或泄漏检查。
 
-musl 单文件包使用默认 mallocng，不能用 `MALLOC_ARENA_MAX` 调节。启动与 ELF 检查仅证明包可执行，不证明它和 glibc 包的长时间并发吞吐或 RSS 相同。比较分配器前，应在相同合成远端媒体、监听者数量和缓存预算下记录分配量、RSS、延迟及空闲后的回落情况。
+musl 单文件包用 jemalloc 代替 musl 自带的 mallocng，由 `neo-server` 的可选特性 `jemalloc` 打开。这个特性只替换可执行文件的 Rust 全局分配器，SQLite 等 C 代码仍使用 libc 的 malloc，外部 ffmpeg 进程也不受影响。glibc 构建（Nix 包、Docker 镜像、NixOS 模块）不打开它。`MALLOC_ARENA_MAX` 只作用于 glibc，对静态包无效。
+
+#### 分配器测量
+
+测量在 24 核、约 92 GiB 内存的 x86_64 主机上进行，使用合成媒体和端到端测试用的假 OpenList。每个变体用同一份源码、`embed-web` 和 release profile 构建，串行运行：`soak.py` 以 6 个听众分别读取远端和本地媒体库，覆盖 Range 读取、拖动、换轨、响度和波形、强制转码、HLS 视频和第 30 分钟的远端重扫，负载一小时后再空闲十分钟，每 30 秒采样一次。之后用 `bench.py` 对 3000 个作品做全量扫描，再做 6 路并发播放、转码和重扫的组合负载。所有运行都没有请求错误。
+
+| 变体 | 浸泡 RSS 峰值 / 空闲十分钟后 MiB | 浸泡 API p50 / p95 / p99 ms | 服务端 CPU s/h |
+|---|---|---|---|
+| glibc 默认 | 50.1 / 28.4 | 1.23 / 1.62 / 2.29 | 13.0 |
+| glibc，`MALLOC_ARENA_MAX=2` | 42.4 / 21.1 | 1.22 / 1.45 / 1.57 | 12.4 |
+| glibc + jemalloc 5.3.1 | 38.1 / 31.6 | 1.23 / 1.68 / 2.01 | 13.7 |
+| glibc + mimalloc 2.3.2 | 122.9 / 64.1 | 1.20 / 1.43 / 1.67 | 13.6 |
+| glibc + mimalloc 3.3.2 | 111.9 / 93.7 | 1.23 / 1.47 / 1.61 | 12.7 |
+| musl mallocng | 18.6 / 16.8 | 1.28 / 1.53 / 1.66 | 13.9 |
+| musl + jemalloc 5.3.1 | 35.0 / 25.3 | 1.28 / 1.55 / 1.70 | 13.1 |
+| musl + mimalloc 2.3.2 | 116.0 / 98.5 | 1.27 / 1.55 / 1.69 | 13.3 |
+| musl + mimalloc 3.3.2 | 120.2 / 87.1 | 1.25 / 1.65 / 1.79 | 13.1 |
+
+浸泡负载很轻，各变体的延迟差别在噪声以内。默认 glibc 那一轮的主机负载平均值为 9，其余多在 1 到 3 之间，它的 p99 不能单独作为证据。重负载的差别来自 `bench.py`，下表的四个变体交错各跑四轮，取中位数：
+
+| 变体 | 扫描 s（四轮范围） | 组合负载 API p50 / p95 ms | 服务端 RSS 峰值 MiB |
+|---|---|---|---|
+| glibc，`MALLOC_ARENA_MAX=2` | 4.0（3.8–9.2） | 4.9 / 6.6 | 141 |
+| glibc + jemalloc | 4.0（3.8–9.4） | 4.2 / 5.7 | 151 |
+| musl mallocng | 6.6（5.2–10.8） | 6.0 / 7.9 | 122 |
+| musl + jemalloc | 4.5（4.4–4.6） | 5.05 / 6.45 | 144 |
+
+结论如下：
+
+- 静态包改用 jemalloc。mallocng 的内存最低，但在组合负载下 p50 和 p95 比 jemalloc 慢约 20%，四轮结果一致，扫描时间也波动更大。jemalloc 的代价是轻负载 RSS 多约 10 MiB，可执行文件大 0.6 MiB。
+- glibc 构建保留系统 malloc 和 `MALLOC_ARENA_MAX=2`。jemalloc 只在组合负载下把 p50 降低约 14%，空闲后反而多留约 10 MiB。arena 上限让空闲后的 RSS 比默认少约 7 MiB。早先观察到的每小时约 12 MiB 增长在这次一小时浸泡中没有复现，两条 glibc 曲线都在下降，所以这组数据只说明上限没有可测的代价，不足以重新证明它是必需的。
+- 不使用 mimalloc。两个版本的 RSS 都是其他方案的三到五倍，延迟没有更好。smaps 显示多出的部分几乎都是匿名透明大页：程序实际在用的堆只有 4 到 5 MB（glibc `mallinfo2` 和 jemalloc `stats.allocated` 的读数），mimalloc 保留的空闲页被内核合并成 2 MiB 大页，空闲期间 RSS 还会上升。设置 `MIMALLOC_ALLOW_THP=0` 和 `MIMALLOC_PURGE_DELAY=0` 的五分钟筛选把匿名内存降到约 11 MiB，但其中出现了换出，调参后的完整一小时运行没有做。
+
+版本、统计接口和页大小等适用边界见[分配器版本与移植边界](allocator-sources.md)。jemalloc 在构建时确定页大小，将来发布 aarch64 静态包时需要在 16 KiB 和 64 KiB 页的内核上单独验证。
 
 ## 已知覆盖缺口
 

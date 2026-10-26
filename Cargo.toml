@@ -82,6 +82,11 @@ opt-level = 3
 [profile.dev.package.blake2]
 opt-level = 3
 
+# jemalloc's configure probes use -Werror. Nix's fortify headers reject
+# -O0, so keep optimisation enabled for this C dependency in dev builds.
+[profile.dev.package.tikv-jemalloc-sys]
+opt-level = 1
+
 # Fat LTO with one codegen unit lets the optimiser see the whole program,
 # which drops duplicated generic code that thin LTO keeps, for a slower final
 # link. See the build rationale in book/src/deployment.md (Chinese).
