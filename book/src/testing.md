@@ -47,15 +47,21 @@ pnpm test
 | `e2e-mock` | Playwright 访问假数据开发服务器，覆盖页面状态、表单、权限显示、错误交互、布局和桌面外壳模拟。不能代替真实后端集成。 |
 | `ffmpeg` | 检查精简版 ffmpeg 所需的解码器、编码器、封装器、滤镜和协议，解封装器清单与输入白名单一致。 |
 | `docker-image` | 不启动 Docker，检查镜像配置、权限、入口、卷、健康检查脚本和镜像大小。 |
+| `docker-rootfs` | 检查 Dockerfile 使用的闭包归档，验证私有卷为空、uid/gid 1000、0700，以及工具链接和 `/tmp` 权限。 |
+| `dockerfile` | 将最终阶段的入口、参数、用户、环境、端口、卷、健康检查和标签与共享 Nix 配置比较，并验证字段漂移会被发现。 |
+| `neo-server-static` | 仅在 x86_64 Linux 上检查 musl ELF 没有 INTERP 或 NEEDED，在临时数据目录创建管理员，启动后取得 `/api/ready` 和嵌入首页的 200。不测试媒体转码。 |
 | `docker-migrate` | 用 bats 和假 Docker 命令检查旧容器迁移脚本的挂载、权限、终端与失败清理行为。 |
 | `docker` | NixOS VM 中运行真实 Docker，用合成旧容器验证迁移、启动、登录和中断清理，不启动源容器。 |
 | `nixos` | 启动 NixOS 模块，检查权限、管理员、备份与恢复、重启后密钥，以及本机 PostgreSQL 配置和数据库复制。 |
 | `windows`、`desktop-windows` | 用交叉工具链检查 Windows 代码能编译，不证明 Windows 运行行为。 |
 | `desktop` | 构建 Linux 桌面应用及其依赖，不替代 WebView 和系统集成验证。 |
 | `ghcr-release` | 用假镜像工具检查版本标签、重复发布和失败处理，不实际推送镜像。 |
+| `github-release` | 用假 API 检查新 Release、相同资产重试、checksum 冲突、部分上传恢复和查询失败，不实际发布。 |
 | `book` | 构建 mdBook，不验证代码行为，也不能代替链接和文字审查。 |
 
 GitHub Actions 的 `CI` 工作流在托管 runner 上按检查分别运行，检查集合来自 flake 的 `x86_64-linux` 属性。只改书籍、用户指南、贡献指南、README 或 `AGENTS.md` 时，工作流会跳过，因此文档改动仍需在本地构建书籍。构建沙箱可能没有 `/usr/bin/env`，测试脚本使用 `#!/bin/sh`。需要写用户目录的检查必须指向临时目录，不依赖 `/homeless-shelter` 可写。
+
+相关构建输入变化时，CI 还在 `ubuntu-latest` 上从头构建服务和开发容器。`scripts/docker-smoke.sh` 使用临时配置和新命名卷，创建合成管理员，等待 healthy，再确认 `/api/ready` 为 200。`scripts/devcontainer-smoke.sh` 在断网容器中验证 Bash 的三种启动方式、`sh` 和直接 `docker exec cargo`，并用 mold 编译一个小程序。它们不证明 aarch64 或 IDE 远端服务已实测，IDE 与原生 ARM64 验证需另行记录。
 
 ## Rust 与合同测试
 
@@ -173,6 +179,8 @@ python3 scripts/soak.py --url http://127.0.0.1:8890 --user admin \
 ### 常驻内存的增长
 
 远端转发会在多个运行时线程上产生短期分配。排查 RSS 增长时，应比较分配器仍在使用的内存、空闲 arena、句柄和子进程数量，区分碎片与泄漏。NixOS 模块和 Docker 镜像设置 `MALLOC_ARENA_MAX=2` 限制 glibc arena 数量，这不替代缓存预算或泄漏检查。
+
+musl 单文件包使用默认 mallocng，不能用 `MALLOC_ARENA_MAX` 调节。启动与 ELF 检查仅证明包可执行，不证明它和 glibc 包的长时间并发吞吐或 RSS 相同。比较分配器前，应在相同合成远端媒体、监听者数量和缓存预算下记录分配量、RSS、延迟及空闲后的回落情况。
 
 ## 已知覆盖缺口
 

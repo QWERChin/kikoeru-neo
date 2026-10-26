@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+# shellcheck source=/dev/null
+. /opt/dev-env.sh
+if [ "${0##*/}" = dev-command ]; then
+  exec "$@"
+fi
+exec "${0##*/}" "$@"

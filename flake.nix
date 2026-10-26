@@ -410,6 +410,25 @@
       # The release binary. Only the package stamps the commit into
       # /api/version: a stamp would make every check and the e2e suite rebuild
       # on each commit, and differ between a dirty and a clean tree.
+      neoServerStatic = pkgs: { stamped }:
+        let
+          craneLib = crane.mkLib pkgs.pkgsStatic;
+          args = rustCommon // {
+            pname = "neo-server-static";
+            cargoExtraArgs = "--locked -p neo-server --features neo-server/embed-web";
+            doCheck = false;
+          };
+        in craneLib.buildPackage (args // {
+          cargoArtifacts = craneLib.buildDepsOnly args;
+          preBuild = copyWeb pkgs;
+          meta.mainProgram = "kikoeru-neo";
+        } // pkgs.lib.optionalAttrs stamped {
+          env = rustCommon.env // {
+            KIKOERU_GIT_COMMIT = self.shortRev or self.dirtyShortRev or "";
+            KIKOERU_BUILD_TIME = if self ? shortRev || self ? dirtyShortRev
+              then toString ((self.lastModified or 0) * 1000) else "";
+          };
+        });
       neoServer = pkgs: { stamped }:
         let
           craneLib = crane.mkLib pkgs;
@@ -433,7 +452,8 @@
           # time so that the package stays reproducible.
           env = rustCommon.env // {
             KIKOERU_GIT_COMMIT = self.shortRev or self.dirtyShortRev or "";
-            KIKOERU_BUILD_TIME = toString ((self.lastModified or 0) * 1000);
+            KIKOERU_BUILD_TIME = if self ? shortRev || self ? dirtyShortRev
+              then toString ((self.lastModified or 0) * 1000) else "";
           };
         });
     in
@@ -455,12 +475,18 @@
         default = self.packages.${pkgs.stdenv.hostPlatform.system}.neo-server;
         kikoeru-neo-docker-migrate = (import ./nix/docker-migrate.nix { inherit pkgs; }).package;
         kikoeru-neo-ghcr-release = (import ./nix/ghcr-release.nix { inherit pkgs; }).package;
+        docker-rootfs = import ./nix/docker-rootfs.nix {
+          inherit pkgs;
+          server = self.packages.${pkgs.stdenv.hostPlatform.system}.neo-server;
+        };
         docker-image = import ./nix/docker.nix {
           inherit pkgs;
           server = self.packages.${pkgs.stdenv.hostPlatform.system}.neo-server;
           # A bare number makes `date -d` fail inside dockerTools.
           created = "@${toString self.lastModified}";
         };
+      } // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isx86_64 {
+        neo-server-static = neoServerStatic pkgs { stamped = true; };
       });
 
       checks = forAllSystems (pkgs: {
@@ -477,11 +503,24 @@
             inherit pkgs server;
             image = import ./nix/docker.nix { inherit pkgs server; created = "@0"; };
           };
+        dockerfile = import ./nix/dockerfile-check.nix {
+          inherit pkgs;
+          server = neoServer pkgs { stamped = false; };
+        };
+        docker-rootfs = import ./nix/docker-rootfs-check.nix {
+          inherit pkgs;
+          server = neoServer pkgs { stamped = false; };
+        };
+        github-release = import ./nix/github-release-check.nix { inherit pkgs; };
         codex-review = import ./nix/codex-review.nix { inherit pkgs; };
         docker-migrate = (import ./nix/docker-migrate.nix { inherit pkgs; }).check;
         ffmpeg = (serverFfmpeg pkgs).check;
         ghcr-release = (import ./nix/ghcr-release.nix { inherit pkgs; }).check;
       } // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isx86_64 {
+        neo-server-static = import ./nix/static-check.nix {
+          inherit pkgs;
+          server = neoServerStatic pkgs { stamped = false; };
+        };
         rust-lint = rustLint pkgs;
         rust-test = rustTest pkgs;
         rust-test-pg = rustTestPg pkgs;
@@ -501,37 +540,7 @@
       nixosModules.default = import ./nix/module.nix self;
 
       devShells = forAllSystems (pkgs: {
-        default = pkgs.mkShell {
-          packages = [
-            pkgs.cargo
-            pkgs.curl
-            pkgs.ffmpeg-headless
-            pkgs.mold
-            pkgs.rustc
-            pkgs.rustfmt
-            pkgs.clippy
-            pkgs.rust-analyzer
-            pkgs.mdbook
-            pkgs.nodejs_22
-            pkgs.pnpm
-            # scripts/bench.py
-            pkgs.python3
-            pkgs.typescript
-            pkgs.sqlx-cli
-            # A throwaway server for the PostgreSQL tests (KIKOERU_TEST_PG).
-            pkgs.postgresql
-          ];
-          RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
-          # `pnpm e2e` uses these browsers. @playwright/test in web/package.json
-          # must have the same version as playwright-driver here.
-          PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
-          PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
-          # The interface is Chinese. Without a CJK font the e2e screenshots
-          # show empty boxes on hosts that have none installed.
-          FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.noto-fonts-cjk-sans ]; };
-          # `pnpm dev` and `pnpm build` take the ass fallback fonts from here.
-          KIKOERU_FALLBACK_FONTS_DIR = "${fallbackFonts pkgs}";
-        };
+        default = import ./nix/dev-shell.nix { inherit pkgs; };
       });
     };
 }

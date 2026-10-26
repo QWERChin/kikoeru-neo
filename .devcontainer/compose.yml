@@ -1,0 +1,12 @@
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace
+    ports:
+      - "127.0.0.1:5173:5173"
+      - "127.0.0.1:8888:8888"
+    stdin_open: true
+    tty: true

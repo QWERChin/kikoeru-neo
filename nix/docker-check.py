@@ -47,7 +47,7 @@ check(
     len(entry) == 3
     and entry[0].endswith("/bin/tini")
     and entry[1] == "--"
-    and entry[2] == entrypoint,
+    and entry[2] == "/bin/kikoeru-neo-entrypoint",
     f"Entrypoint is {entry!r}",
 )
 shim = pathlib.Path(entrypoint).read_text()
@@ -75,6 +75,16 @@ check(
     (config.get("Labels") or {}).get("org.opencontainers.image.version")
     == pathlib.Path(server).name.rsplit("-", 1)[1],
     f"Labels is {config.get('Labels')!r}",
+)
+check(
+    (config.get("Labels") or {}).get("org.opencontainers.image.source")
+    == "https://github.com/QWERChin/kikoeru-neo",
+    "the image is not linked to its repository",
+)
+check(
+    (config.get("Labels") or {}).get("org.opencontainers.image.licenses")
+    == "GPL-3.0-or-later",
+    "the image license label is missing",
 )
 check(
     config.get("ExposedPorts") == {"8888/tcp": {}},
@@ -142,13 +152,15 @@ for path, mode in [("data", 0o700), ("backup", 0o700)]:
             (ti.uid, ti.gid, ti.mode & 0o7777) == (1000, 1000, mode),
             f"/{path} is {ti.uid}:{ti.gid} {ti.mode & 0o7777:o}",
         )
-check(not under("data"), f"/data is not empty: {under('data')[:5]}")
+for path in ["data", "backup"]:
+    check(not under(path), f"/{path} is not empty: {under(path)[:5]}")
 tmp = find("tmp")
 check(tmp is not None and tmp.mode & 0o7777 == 0o1777, "/tmp is not 1777")
 conf = find("config")
 check(conf is not None and conf.isdir(), "/config is not a directory")
 check(not under("config"), "/config is not empty")
-for path in ["bin/kikoeru-neo", "bin/kikoeru-neo-healthcheck", "bin/env"]:
+for path in ["bin/kikoeru-neo", "bin/kikoeru-neo-healthcheck", "bin/env",
+             "bin/tini", "bin/kikoeru-neo-entrypoint", "bin/chown"]:
     check(find(path) is not None, f"/{path} is missing")
 
 # Its own layer, so a new build ships one changed layer.
