@@ -10,9 +10,32 @@ Choose a target version before upgrading, check for database changes, and keep a
 
 A restart interrupts running scans. They are marked `interrupted` on startup and need a new scan request. Queued tasks are requeued rather than canceled. Already committed data remains, but this is not a guarantee of automatic resume from the interruption point.
 
-## NixOS or a standalone binary
+## Docker
 
-NixOS pins the input through `flake.lock`. Save the updated lock file and activate the system from that configuration. For a fixed release, point the input at an existing version tag or revision. Keep later deployments from reusing an older lock file unintentionally.
+Use a full version tag such as `0.1.1` or an image digest, not the floating `0.1` series tag, as your rollback reference. Before changing anything, record the image the container runs now:
+
+```sh
+docker compose images kikoeru-neo
+```
+
+For the published image, change the tag in `compose.yaml`, then pull and restart after completing the backup:
+
+```sh
+docker compose pull kikoeru-neo
+docker compose up -d
+docker compose ps
+docker compose logs --tail 100 kikoeru-neo
+```
+
+For an image you build yourself, check out the new tag, build it under a new tag such as `kikoeru-neo:0.1.1` with the same method as before ([Dockerfile or Nix](install-docker.md#get-the-image)), update `compose.yaml` and run the same `up -d`. Keep the old image instead of rebuilding over its tag, so that you can return to it. Upgrading does not require deleting the data volume.
+
+## Standalone binary
+
+Download and verify the new release as in [Download and verify](install-binary.md#download-and-verify), but keep the old file. Stop the service, replace `/usr/local/bin/kikoeru-neo` with the new file, and start the service again with the same configuration and data directory. Keep the previous binary until the new version has run successfully.
+
+## NixOS
+
+NixOS pins the input through `flake.lock`. Point the input at the target version tag, for example `github:QWERChin/kikoeru-neo/v0.1.1`, save the updated lock file and activate the system from that configuration. Keep later deployments from reusing an older lock file unintentionally.
 
 From your system flake directory, for a target named `media`:
 
@@ -24,22 +47,6 @@ journalctl -u kikoeru-neo -n 100 --no-pager
 ```
 
 `nix flake update` selects the newest revision allowed by the input URL, not a release chosen for your installation. Change that URL first when you need an exact version. Do not run the upgrade commands before selecting the target and completing the backup.
-
-For a standalone binary, check out the selected source version and run `nix build .#neo-server`. Stop the old process, then start the new package with the same configuration and data directory. Keep the old package or pinned inputs that can rebuild it.
-
-## Docker
-
-Use a full version tag or image digest, not a floating series tag as your rollback reference. Rebuild and load source-built images using the [Docker guide](install-docker.md). Only use `docker compose pull kikoeru-neo` for a GHCR image after confirming the selected release is accessible.
-
-After updating `image` in Compose and completing the backup:
-
-```sh
-docker compose up -d
-docker compose ps
-docker compose logs --tail 100 kikoeru-neo
-```
-
-Different local builds can share a source version number. Keep the old image ID or a separate tag instead of relying on an overwritten tag for recovery. Upgrading does not require deleting the data volume.
 
 ## Verify the upgrade
 

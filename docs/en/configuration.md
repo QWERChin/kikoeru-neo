@@ -52,7 +52,7 @@ These are server defaults. The [desktop application](desktop.md) has its own lis
 | `media.light_jobs` | `4` | Concurrency for background probing, loudness analysis and other light jobs. On-demand playback probing has a separate pool of the same size. |
 | `media.job_timeout` | `"2h"` | Timeout for a single transcode. |
 | `media.queue_limit` | `32` | Maximum queued tasks, counted separately for transcodes and for loudness and waveform analysis. Further requests of that kind receive `queue_full`. |
-| `media.ffmpeg`, `media.ffprobe` | Unset | Absolute executable paths. Otherwise resolved through `PATH`; the Nix package and image supply both tools. |
+| `media.ffmpeg`, `media.ffprobe` | Unset | Absolute executable paths. Otherwise resolved through `PATH`. The Docker image and the Nix package supply both tools; the [standalone binary](install-binary.md#install-ffmpeg-first) needs them installed. |
 | `media.video_transcode` | `true` | Allows video re-encoding. Does not disable direct playback or remuxing. |
 | `cache.max_bytes` | `"20GB"` | Eviction target for `cache/transcode/`, evicting least-recently-accessed entries first. Entries in use can keep usage above it, and temporary files and thumbnails are not counted. |
 | `cache.min_free_bytes` | `"5GB"` | Refuses new generation jobs when free disk space falls below this threshold. |

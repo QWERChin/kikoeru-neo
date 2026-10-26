@@ -2,15 +2,16 @@
 
 kikoeru-neo 用来浏览和播放自己保存的有声剧、有声书及视频，并从 DLsite 获取作品信息。这套指南面向自行安装和运行服务的管理员，也介绍桌面应用。界面目前使用中文。
 
-需要准备可读取的媒体目录，或者 OpenList、WebDAV 服务。扫描器按作品目录名中的编号识别作品，普通的无编号文件夹不会自动成为作品。请先看[快速开始](quickstart.md)，再按运行方式选择安装页。
+需要准备可读取的媒体目录，或者 OpenList、WebDAV 服务。扫描器按作品目录名中的编号识别作品，普通的无编号文件夹不会自动成为作品。请先看[快速开始](quickstart.md)，再按运行方式选择安装页。Docker 是最直接的方式，镜像里已经包含服务需要的一切。
 
 ## 安装与首次使用
 
 | 你的任务 | 从这里开始 |
 |---|---|
-| 在 Linux 上先试用 | [快速开始](quickstart.md) |
-| 作为 NixOS 系统服务运行 | [NixOS 安装](install-nixos.md) |
+| 用 Docker 先试用 | [快速开始](quickstart.md) |
 | 用 Docker Compose 运行 | [Docker 安装](install-docker.md) |
+| 在任意 `x86_64` Linux 上运行单个可执行文件 | [单文件版](install-binary.md) |
+| 作为 NixOS 系统服务运行 | [NixOS 安装](install-nixos.md) |
 | 在个人电脑上使用独立窗口或本机媒体库 | [桌面应用](desktop.md) |
 | 从 kikoeru-express 保留收藏、评价和进度 | [迁移旧数据](migration.md) |
 

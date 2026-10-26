@@ -4,13 +4,6 @@
 
 ## 找到日志
 
-NixOS：
-
-```sh
-systemctl status kikoeru-neo
-journalctl -u kikoeru-neo -n 100 --no-pager
-```
-
 Docker 在 Compose 目录运行：
 
 ```sh
@@ -18,7 +11,14 @@ docker compose ps
 docker compose logs --tail 100 kikoeru-neo
 ```
 
-直接运行时看终端 stderr。桌面本机模式在设置或启动错误页点“打开日志文件夹”，位置见[桌面应用](desktop.md)。每个任务结束的日志带任务 ID，方便与设置页对应。
+NixOS，以及作为[系统服务](install-binary.md#作为系统服务运行)运行的单文件版：
+
+```sh
+systemctl status kikoeru-neo
+journalctl -u kikoeru-neo -n 100 --no-pager
+```
+
+在终端里直接启动时看终端的 stderr。桌面本机模式在设置或启动错误页点“打开日志文件夹”，位置见[桌面应用](desktop.md)。每个任务结束的日志带任务 ID，方便与设置页对应。
 
 ## 页面打不开或容器不健康
 
@@ -64,7 +64,7 @@ Docker 的 NAS 数据卷、`0777` 挂载或 `fsGroup` 改写权限都可能触�
 
 ## 播放失败、准备时间很长或 `queue_full`
 
-先区分媒体库断线、浏览器不支持格式、后台任务排队和磁盘不足。检查设置页任务及日志，确认 ffmpeg、ffprobe 可运行。Nix 包和镜像已包含工具，单独复制一个二进制不会自动带齐它们。
+先区分媒体库断线、浏览器不支持格式、后台任务排队和磁盘不足。检查设置页任务及日志，确认 ffmpeg、ffprobe 可运行。Docker 镜像和 Nix 包已包含这两个工具。用单文件版时，按[先安装 ffmpeg](install-binary.md#先安装-ffmpeg)安装并检查编码器。任务信息里出现 `cannot start ffmpeg`，说明服务端找不到这个程序。
 
 `queue_full` 表示这一类任务（转码，或者响度和波形分析）的排队已达上限，等这类任务结束再试。磁盘低于 `cache.min_free_bytes` 时新的生成任务会被拒绝，释放无关空间或调整合理的缓存预算，不删除数据库或凭据。关闭 `media.video_transcode` 后，不支持直接播放或转封装的视频会明确失败。
 

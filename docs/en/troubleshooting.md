@@ -4,13 +4,6 @@ Record the version, installation method, steps and exact error before checking s
 
 ## Find the logs
 
-On NixOS:
-
-```sh
-systemctl status kikoeru-neo
-journalctl -u kikoeru-neo -n 100 --no-pager
-```
-
 For Docker, from the Compose directory:
 
 ```sh
@@ -18,7 +11,14 @@ docker compose ps
 docker compose logs --tail 100 kikoeru-neo
 ```
 
-A standalone server writes to terminal stderr. Desktop local mode offers Open log folder (“打开日志文件夹”) in Settings or on the startup-error page; see [desktop paths](desktop.md#data-and-log-locations). Task-completion logs include task IDs that can be matched to Settings.
+On NixOS, and for the standalone binary running as a [system service](install-binary.md#run-as-a-system-service):
+
+```sh
+systemctl status kikoeru-neo
+journalctl -u kikoeru-neo -n 100 --no-pager
+```
+
+A server started in a terminal writes to stderr. Desktop local mode offers Open log folder (“打开日志文件夹”) in Settings or on the startup-error page; see [desktop paths](desktop.md#data-and-log-locations). Task-completion logs include task IDs that can be matched to Settings.
 
 ## The page will not open, or the container is unhealthy
 
@@ -64,7 +64,7 @@ A completed scan does not mean all local probing has finished. Remote audio and 
 
 ## Playback fails, preparation takes a long time, or `queue_full` appears
 
-Distinguish unavailable storage, unsupported browser formats, queued background tasks and insufficient disk space. Check Settings tasks and logs, and confirm ffmpeg and ffprobe can run. The Nix package and image include these tools; copying an individual binary does not carry its dependencies with it.
+Distinguish unavailable storage, unsupported browser formats, queued background tasks and insufficient disk space. Check Settings tasks and logs, and confirm ffmpeg and ffprobe can run. The Docker image and the Nix package include these tools. With the standalone binary, install them and check the encoders as described in [Install ffmpeg first](install-binary.md#install-ffmpeg-first); a task message such as `cannot start ffmpeg` means the server could not find the executable.
 
 `queue_full` means the queue for that kind of task, transcoding or loudness and waveform analysis, is at its limit. Wait for those tasks to finish before trying again. New generation jobs are refused below `cache.min_free_bytes`; free unrelated space or adjust the cache budget without deleting the database or credentials. With `media.video_transcode` disabled, videos that need re-encoding fail rather than being transcoded.
 

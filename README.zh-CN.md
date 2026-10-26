@@ -34,34 +34,43 @@
 
 ## 快速开始
 
-在 `x86_64-linux` 或 `aarch64-linux` 上安装启用了 flakes 的 Nix。在一个新的工作目录中构建服务器并创建试用配置：
+在装有 Docker Engine 25 或更新版本的 `x86_64` Linux 上，创建管理员并启动服务。把 `/srv/media/works` 换成自己的媒体目录：
 
 ```sh
-nix build github:QWERChin/kikoeru-neo#neo-server
-umask 077
-mkdir demo-data
-printf 'listen = "127.0.0.1:8888"\n' > demo-data/config.toml
-export KIKOERU_DATA_DIR="$PWD/demo-data"
-export KIKOERU_CONFIG="$PWD/demo-data/config.toml"
-unset KIKOERU_DATABASE_URL KIKOERU_LISTEN
-./result/bin/kikoeru-neo user create --admin admin
-./result/bin/kikoeru-neo serve
+mkdir -p neo-trial && cd neo-trial
+printf '# 媒体库可在登录后的设置页添加。\n' > config.toml
+chmod 0644 config.toml
+image=ghcr.io/qwerchin/kikoeru-neo:0.1.0
+docker run --rm -it -e KIKOERU_CONFIG=/config/config.toml \
+  -v neo-trial-data:/data -v "$PWD/config.toml:/config/config.toml:ro" \
+  "$image" user create --admin admin
+docker run -d --name neo-trial -p 127.0.0.1:8888:8888 \
+  -v neo-trial-data:/data -v "$PWD/config.toml:/config/config.toml:ro" \
+  -v /srv/media/works:/media/works:ro \
+  "$image"
 ```
 
-按提示输入至少 8 个字符的密码。打开 `http://127.0.0.1:8888`，登录后在设置页添加本地媒体库。例如使用 ID `local`、名称“本地作品”和服务器上可读的路径 `/srv/media/works`。作品目录名必须包含 `RJ`、`BJ` 或 `VJ` 加 6 到 8 位数字，例如合成名称 `RJ01234567 示例作品`。
+按提示输入至少 8 个字符的密码。打开 `http://127.0.0.1:8888`，登录后在设置页添加本地媒体库，路径填 `/media/works`。作品目录名必须包含 `RJ`、`BJ` 或 `VJ` 加 6 到 8 位数字，例如合成名称 `RJ01234567 示例作品`。保存媒体库并启动扫描，然后打开作品播放轨道。
 
-保存媒体库并启动扫描，然后打开作品播放轨道。按 Ctrl-C 停止服务，保留 `demo-data` 以保存账号和进度。再次启动的方法见[快速开始](docs/zh-CN/quickstart.md)，向其他设备开放服务前先读[安全与网络](docs/zh-CN/security.md)。核心播放支持 HTTP，Service Worker 和 PWA 安装需要受支持的安全上下文。
+镜像已包含 ffmpeg 和 ffprobe。停止和删除试用实例的方法见[快速开始](docs/zh-CN/quickstart.md)，向其他设备开放服务前先读[安全与网络](docs/zh-CN/security.md)。核心播放支持 HTTP，Service Worker 和 PWA 安装需要受支持的安全上下文。
+
+## 安装方式
+
+- [Docker Compose](docs/zh-CN/install-docker.md)，可以用发布的镜像，也可以用 Dockerfile 或 Nix 自己构建。
+- [单文件版](docs/zh-CN/install-binary.md)，适用于任意 `x86_64` Linux 发行版，需要先从发行版安装 ffmpeg 和 ffprobe。
+- [NixOS](docs/zh-CN/install-nixos.md) 系统服务。
+- [桌面应用](docs/zh-CN/desktop.md)，用于独立窗口或个人电脑上的本机媒体库。
 
 ## 使用指南
 
-- [使用指南首页](docs/zh-CN/index.md)，包括 [NixOS 安装](docs/zh-CN/install-nixos.md)和 [Docker 安装](docs/zh-CN/install-docker.md)。
+- [使用指南首页](docs/zh-CN/index.md)。
 - [配置](docs/zh-CN/configuration.md)、[媒体库与扫描](docs/zh-CN/libraries.md)和[账号](docs/zh-CN/accounts.md)。
 - [从 kikoeru-express 迁移](docs/zh-CN/migration.md)、[备份与恢复](docs/zh-CN/backup-restore.md)和[升级](docs/zh-CN/upgrade.md)。
-- [桌面应用](docs/zh-CN/desktop.md)和[故障排查](docs/zh-CN/troubleshooting.md)。
+- [故障排查](docs/zh-CN/troubleshooting.md)。
 
 ## 参与贡献
 
-开发、测试和拉取请求的要求见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)。设计书只维护中文版，面向实现者，安装和使用播放器不需要先读设计书。
+开发、测试和拉取请求的要求见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)。仓库带有装好全部工具的 Dev Container，只有 Docker 也能开始开发。设计书只维护中文版，面向实现者，安装和使用播放器不需要先读设计书。
 
 ## 许可证
 

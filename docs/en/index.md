@@ -2,15 +2,16 @@
 
 kikoeru-neo lets you browse and play your own audio dramas, audiobooks and videos, with work metadata from DLsite. This guide covers installing and running a server, managing a library and using the desktop application. The interface is currently in Chinese. Instructions include the Chinese labels where you need to find a control.
 
-You need readable media folders or an OpenList or WebDAV service. The scanner identifies works by codes in folder names, so an ordinary folder without a work code will not become a work automatically. Start with the [quickstart](quickstart.md), then choose an installation method.
+You need readable media folders or an OpenList or WebDAV service. The scanner identifies works by codes in folder names, so an ordinary folder without a work code will not become a work automatically. Start with the [quickstart](quickstart.md), then choose an installation method. Docker is the most direct way: the image contains everything the server needs.
 
 ## Install and start listening
 
 | Your task | Guide |
 |---|---|
-| Try the server on Linux | [Quickstart](quickstart.md) |
-| Run a NixOS system service | [Install on NixOS](install-nixos.md) |
+| Try the server with Docker | [Quickstart](quickstart.md) |
 | Run with Docker Compose | [Install with Docker](install-docker.md) |
+| Run one executable on any `x86_64` Linux | [Standalone binary](install-binary.md) |
+| Run a NixOS system service | [Install on NixOS](install-nixos.md) |
 | Use a separate window or a library on your computer | [Desktop application](desktop.md) |
 | Keep favorites, reviews and progress from kikoeru-express | [Migrate existing data](migration.md) |
 
