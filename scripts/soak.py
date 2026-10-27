@@ -384,6 +384,31 @@ def descendants(pid):
     return found
 
 
+def stat_fields(pid):
+    with open(f"/proc/{pid}/stat") as f:
+        return f.read().rsplit(")", 1)[1].split()
+
+
+def cpu_fields(pid, kids, read_stat=stat_fields):
+    """Return the server's stat fields and its live children's CPU ticks.
+
+    A child reaped between the reads would move its time out of the live
+    sum before the server's reaped total includes it, so the reads repeat
+    until that total is the same on both sides of the child reads.
+    """
+    while True:
+        before = read_stat(pid)
+        live_ticks = 0
+        for child in kids:
+            try:
+                live_ticks += sum(int(v) for v in read_stat(child)[11:15])
+            except FileNotFoundError:
+                pass
+        fields = read_stat(pid)
+        if fields[13:15] == before[13:15]:
+            return fields, live_ticks
+
+
 def process_sample(pid):
     status = {}
     with open(f"/proc/{pid}/status") as f:
@@ -391,16 +416,7 @@ def process_sample(pid):
             key, _, value = line.partition(":")
             status[key] = value.strip()
     kids = descendants(pid)
-    with open(f"/proc/{pid}/stat") as f:
-        fields = f.read().rsplit(")", 1)[1].split()
-    live_child_ticks = 0
-    for child, _ in kids:
-        try:
-            with open(f"/proc/{child}/stat") as f:
-                child_fields = f.read().rsplit(")", 1)[1].split()
-            live_child_ticks += sum(int(v) for v in child_fields[11:15])
-        except FileNotFoundError:
-            pass
+    fields, live_child_ticks = cpu_fields(pid, [child for child, _ in kids])
     rss_kib = int(status["VmRSS"].split()[0])
     swap_kib = int(status["VmSwap"].split()[0])
     return {
