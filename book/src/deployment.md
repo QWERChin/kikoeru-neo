@@ -192,12 +192,18 @@ NixOS 模块管理服务账号、只读配置、数据目录和 systemd 单元�
 发布工作流的目标是 `ghcr.io/qwerchin/kikoeru-neo`，目前只发布 x86_64 镜像。镜像的 `org.opencontainers.image.source` 指向仓库，`org.opencontainers.image.licenses` 为 `GPL-3.0-or-later`。包由公开仓库的工作流用 `GITHUB_TOKEN` 推送，并通过 source label 关联仓库，因此继承仓库的公开可见性，不需要在包设置里手动改为 public。`v0.1.0` 首次发布后已在没有任何凭据的情况下拉取成功。仓库若改为私有，包的访问权限也会随之改变，已部署的拉取会失败。
 
 - **标签。** `X.Y.Z` 固定一个版本，`X.Y` 指向该系列最新补丁，不发布 `latest`。需要可重复部署时固定完整版本或镜像摘要。
-- **触发。** `.github/workflows/release.yml` 响应 `vX.Y.Z` 标签，并允许手动重试已有标签。版本必须与 `Cargo.toml` 一致。工作流运行检查、构建镜像，再由 `scripts/ghcr-release.sh` 推送。
+- **触发。** `.github/workflows/release.yml` 响应 `vX.Y.Z` 标签，并允许手动重试已有标签。版本必须与 `Cargo.toml` 一致。工作流先确认 `main` 上的 CI 已验证标签对应的代码，再构建镜像并由 `scripts/ghcr-release.sh` 推送。
 - **重复发布。** `X.Y.Z` 已存在且镜像 config 摘要相同时，脚本跳过它，只补浮动标签。摘要不同或查询失败时拒绝推送。`X.Y` 只向较新的补丁版本移动，不因重试旧版本回退。
 - **并发。** 发布共用一个并发组，避免两个运行同时移动浮动标签。被排队规则取消或推送失败的运行需要重新触发，不能把触发成功当成发布完成。
 - **验证。** `ghcr-release` 检查使用假 skopeo，验证流程而不推送镜像。删除旧发布前应考虑仍固定这些版本的消费者，不复用已经发布过的版本号。
 
-同一标签还创建 GitHub Release，上传 `kikoeru-neo-X.Y.Z-x86_64-linux-musl` 和 `SHA256SUMS`。检查任务只有读取权限，镜像任务另授 `packages: write`，二进制任务另授 `contents: write`。所有外部 Actions 固定完整提交 SHA。
+工作流从本次工作流提交读取 `scripts/release-ci-gate.py`，让尚未包含该脚本的旧标签也能重试。脚本从完整历史检出后的 `HEAD` 取得标签提交，要求它等于 `origin/main` 或是其祖先。脚本沿标签的第一父提交历史最多检查 50 个提交，查找最近一个在 `main` 上由 push 或手动触发的 `ci.yml` 运行。同一提交只要有一次完整运行成功即可通过。若尚无成功运行但仍有运行未结束，脚本每 60 秒查询一次，默认等待预算为 175 分钟，发布检查任务的超时为 180 分钟。所有运行都已结束且无一成功时立即失败，不退回更早的成功提交。日志会打印所依赖的提交和运行链接，手动重试已有标签也必须经过同一检查。
+
+CI 会跳过纯文档提交，因此标签不必与已验证提交相同，但两者之间的文件差异必须全部匹配 `ci.yml` 的 `push.paths-ignore`。脚本在运行时从标签提交中的工作流读取该单行列表，只接受双引号字符串组成的列表、精确路径和以 `/**` 结尾的目录模式。遇到不支持的形式或模式、未覆盖的代码文件、API 错误、异常响应或无法完整确认的分页结果时，发布停止。
+
+发布不再在一个 runner 上重新构建全部 flake 检查，而是复用 CI 按检查分开的 job 的成功结果。`v0.1.0` 和 `v0.1.1` 的首次发布曾在集中构建时出现 e2e 失败，重跑和同一提交的 CI 均通过，但日志不足以确认原因。这项调整取消重复验证，不代表已经确定或修复原失败原因。`release-ci-gate` 检查用临时 Git 仓库和假 API 验证门禁，不接触 GitHub。
+
+同一标签还创建 GitHub Release，上传 `kikoeru-neo-X.Y.Z-x86_64-linux-musl` 和 `SHA256SUMS`。检查任务仅授予 `contents: read` 和 `actions: read`，镜像任务另授 `packages: write`，二进制任务另授 `contents: write`。镜像和二进制任务都依赖发布检查通过。所有外部 Actions 固定完整提交 SHA。
 
 `scripts/github-release.py` 要求标签已经存在且与 Cargo 版本一致。重试时复用已有 Release，下载同名资产比较实际 SHA-256，内容相同则保留，内容不同或 API 查询失败则停止，不自动替换。新 Release 先建为 draft，两个资产上传完后才发布。中断后可以补齐缺少的资产，再发布同一个 draft。`github-release` 检查通过假 API 验证这些分支，不接触 GitHub。
 

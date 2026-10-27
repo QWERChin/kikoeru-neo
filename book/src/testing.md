@@ -58,6 +58,7 @@ pnpm test
 | `desktop` | 构建 Linux 桌面应用及其依赖，不替代 WebView 和系统集成验证。 |
 | `ghcr-release` | 用假镜像工具检查版本标签、重复发布和失败处理，不实际推送镜像。 |
 | `github-release` | 用假 API 检查新 Release、相同资产重试、checksum 冲突、部分上传恢复和查询失败，不实际发布。 |
+| `release-ci-gate` | 用临时 Git 仓库和假 API 检查主线归属、CI 结果与等待、纯文档差异，以及异常响应和分页，不访问 GitHub。 |
 | `book` | 构建 mdBook，不验证代码行为，也不能代替链接和文字审查。 |
 
 GitHub Actions 的 `CI` 工作流在托管 runner 上按检查分别运行，检查集合来自 flake 的 `x86_64-linux` 属性。只改书籍、用户指南、贡献指南、README 或 `AGENTS.md` 时，工作流会跳过，因此文档改动仍需在本地构建书籍。构建沙箱可能没有 `/usr/bin/env`，测试脚本使用 `#!/bin/sh`。需要写用户目录的检查必须指向临时目录，不依赖 `/homeless-shelter` 可写。
