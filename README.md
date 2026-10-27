@@ -40,7 +40,7 @@ With Docker Engine 25 or newer on `x86_64` Linux, create an administrator and st
 mkdir -p neo-trial && cd neo-trial
 printf '# Add libraries in Settings after signing in.\n' > config.toml
 chmod 0644 config.toml
-image=ghcr.io/qwerchin/kikoeru-neo:0.1.0
+image=ghcr.io/qwerchin/kikoeru-neo:0.1.1
 docker run --rm -it -e KIKOERU_CONFIG=/config/config.toml \
   -v neo-trial-data:/data -v "$PWD/config.toml:/config/config.toml:ro" \
   "$image" user create --admin admin

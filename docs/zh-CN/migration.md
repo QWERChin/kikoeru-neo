@@ -112,7 +112,7 @@ sudo -u kikoeru-neo kikoeru-neo import-legacy --merge \
 ```sh
 docker stop legacy-player
 nix run .#kikoeru-neo-docker-migrate -- \
-  --from-container legacy-player --image kikoeru-neo:0.1.0 --out ./neo
+  --from-container legacy-player --image kikoeru-neo:0.1.1 --out ./neo
 ```
 
 在源码目录运行 `nix run`，镜像标签按实际载入结果填写。脚本只检查和复制旧容器，不启动它。输入、输出都连接终端时逐项提问，否则使用 `migrate --yes` 且不设密码。
@@ -129,7 +129,7 @@ nix run .#kikoeru-neo-docker-migrate -- \
 
    ```sh
    docker run --rm -it -v kikoeru-neo-data:/data \
-     kikoeru-neo:0.1.0 user set-password admin
+     kikoeru-neo:0.1.1 user set-password admin
    ```
 
 4. 启动新 Compose，等待健康检查成功，再登录并扫描。

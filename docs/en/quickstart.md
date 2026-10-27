@@ -18,7 +18,7 @@ chmod 0644 config.toml
 Create the administrator in a new volume, then start the server with your media folder mounted read-only. Replace `/srv/media/works` with your folder:
 
 ```sh
-image=ghcr.io/qwerchin/kikoeru-neo:0.1.0
+image=ghcr.io/qwerchin/kikoeru-neo:0.1.1
 docker run --rm -it -e KIKOERU_CONFIG=/config/config.toml \
   -v neo-trial-data:/data -v "$PWD/config.toml:/config/config.toml:ro" \
   "$image" user create --admin admin
@@ -56,4 +56,4 @@ To connect from another device, configure the listener, firewall and HTTPS as de
 ## Without Docker
 
 - The [standalone binary](install-binary.md) is one file for `x86_64` Linux. It needs ffmpeg and ffprobe from your distribution.
-- With Nix, `nix build github:QWERChin/kikoeru-neo/v0.1.0#neo-server` produces `result/bin/kikoeru-neo`, which brings its own ffmpeg and runs like the standalone binary. The [NixOS guide](install-nixos.md) sets up a system service.
+- With Nix, `nix build github:QWERChin/kikoeru-neo/v0.1.1#neo-server` produces `result/bin/kikoeru-neo`, which brings its own ffmpeg and runs like the standalone binary. The [NixOS guide](install-nixos.md) sets up a system service.

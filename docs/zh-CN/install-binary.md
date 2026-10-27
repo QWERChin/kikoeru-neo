@@ -34,7 +34,7 @@ media tool check: ffmpeg "ffmpeg": missing encoder libx264; affected features: H
 ## 下载并校验
 
 ```sh
-version=0.1.0
+version=0.1.1
 asset="kikoeru-neo-$version-x86_64-linux-musl"
 base="https://github.com/QWERChin/kikoeru-neo/releases/download/v$version"
 curl -fLO "$base/$asset"
@@ -79,7 +79,7 @@ printf 'listen = "127.0.0.1:8888"\n' |
   sudo tee /etc/kikoeru-neo/config.toml >/dev/null
 sudo chown root:kikoeru-neo /etc/kikoeru-neo/config.toml
 sudo chmod 0640 /etc/kikoeru-neo/config.toml
-curl -fLO https://raw.githubusercontent.com/QWERChin/kikoeru-neo/v0.1.0/packaging/systemd/kikoeru-neo.service
+curl -fLO https://raw.githubusercontent.com/QWERChin/kikoeru-neo/v0.1.1/packaging/systemd/kikoeru-neo.service
 sudo install -m 0644 kikoeru-neo.service /etc/systemd/system/kikoeru-neo.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now kikoeru-neo.service

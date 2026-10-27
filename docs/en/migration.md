@@ -112,7 +112,7 @@ A merge does not create libraries. Add them through [library settings](libraries
 ```sh
 docker stop legacy-player
 nix run .#kikoeru-neo-docker-migrate -- \
-  --from-container legacy-player --image kikoeru-neo:0.1.0 --out ./neo
+  --from-container legacy-player --image kikoeru-neo:0.1.1 --out ./neo
 ```
 
 Run `nix run` from the source checkout and use the image tag actually loaded. The script inspects and copies the old container without starting it. When both input and output are terminals, it prompts interactively. Otherwise it uses `migrate --yes` and sets no passwords.
@@ -129,7 +129,7 @@ After success:
 
    ```sh
    docker run --rm -it -v kikoeru-neo-data:/data \
-     kikoeru-neo:0.1.0 user set-password admin
+     kikoeru-neo:0.1.1 user set-password admin
    ```
 
 4. Start the new Compose service, wait for readiness, sign in and scan.

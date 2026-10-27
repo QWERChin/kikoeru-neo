@@ -11,33 +11,33 @@
 发布的镜像只有 `x86_64` Linux 版本：
 
 ```sh
-docker pull ghcr.io/qwerchin/kikoeru-neo:0.1.0
+docker pull ghcr.io/qwerchin/kikoeru-neo:0.1.1
 ```
 
-`0.1.0` 固定一个版本，`0.1` 跟随 0.1 系列最新的补丁版本。仓库不发布 `latest`，只有改了标签才会升级。`aarch64` 没有发布的镜像，改用 Dockerfile 构建。
+`0.1.1` 固定一个版本，`0.1` 跟随 0.1 系列最新的补丁版本。仓库不发布 `latest`，只有改了标签才会升级。`aarch64` 没有发布的镜像，改用 Dockerfile 构建。
 
 ### 用 Dockerfile 构建
 
 只需要 Git 和 Docker，`x86_64` 和 `aarch64` Linux 都可以。Dockerfile 在构建容器里运行 Nix，得到的就是 CI 测试的那份构建：
 
 ```sh
-git clone --branch v0.1.0 https://github.com/QWERChin/kikoeru-neo.git
+git clone --branch v0.1.1 https://github.com/QWERChin/kikoeru-neo.git
 cd kikoeru-neo
-docker build -t kikoeru-neo:0.1.0 .
+docker build -t kikoeru-neo:0.1.1 .
 ```
 
-第一次构建要从源码编译 Rust 服务端和精简版 ffmpeg，在一台 24 核的测试机上用了大约 10 分钟。构建缓存约占 10 GB 磁盘，构建完可以用 `docker builder prune` 删除，最终镜像约 175 MB。源码没有任何改动时，再次构建才能复用 Docker 的层缓存。Dockerfile 构建不带 Git 信息，`/api/version` 只报告版本号，没有提交号。下面的 Compose 文件里把 `image` 改成 `kikoeru-neo:0.1.0`。
+第一次构建要从源码编译 Rust 服务端和精简版 ffmpeg，在一台 24 核的测试机上用了大约 10 分钟。构建缓存约占 10 GB 磁盘，构建完可以用 `docker builder prune` 删除，最终镜像约 175 MB。源码没有任何改动时，再次构建才能复用 Docker 的层缓存。Dockerfile 构建不带 Git 信息，`/api/version` 只报告版本号，没有提交号。下面的 Compose 文件里把 `image` 改成 `kikoeru-neo:0.1.1`。
 
 ### 用 Nix 构建
 
 Linux 上装有支持 flakes 的 Nix 时，可以不经 Docker 构建镜像，再载入：
 
 ```sh
-nix build github:QWERChin/kikoeru-neo/v0.1.0#docker-image --out-link docker-image
+nix build github:QWERChin/kikoeru-neo/v0.1.1#docker-image --out-link docker-image
 ./docker-image | docker load
 ```
 
-`docker-image` 是输出镜像流的脚本，不是 tar 文件。载入后镜像名为 `kikoeru-neo:0.1.0`，下面的 Compose 文件里把 `image` 改成这个名字。
+`docker-image` 是输出镜像流的脚本，不是 tar 文件。载入后镜像名为 `kikoeru-neo:0.1.1`，下面的 Compose 文件里把 `image` 改成这个名字。
 
 ## 准备 Compose
 
@@ -55,7 +55,7 @@ chmod 0644 config.toml
 ```yaml
 services:
   kikoeru-neo:
-    image: ghcr.io/qwerchin/kikoeru-neo:0.1.0
+    image: ghcr.io/qwerchin/kikoeru-neo:0.1.1
     restart: unless-stopped
     stop_grace_period: 30s
     read_only: true

@@ -18,7 +18,7 @@ chmod 0644 config.toml
 先在新卷里创建管理员，再启动服务，并把媒体目录只读挂进容器。把 `/srv/media/works` 换成自己的目录：
 
 ```sh
-image=ghcr.io/qwerchin/kikoeru-neo:0.1.0
+image=ghcr.io/qwerchin/kikoeru-neo:0.1.1
 docker run --rm -it -e KIKOERU_CONFIG=/config/config.toml \
   -v neo-trial-data:/data -v "$PWD/config.toml:/config/config.toml:ro" \
   "$image" user create --admin admin
@@ -56,4 +56,4 @@ docker logs --tail 100 neo-trial
 ## 不用 Docker
 
 - [单文件版](install-binary.md)是一个适用于 `x86_64` Linux 的可执行文件，需要先从发行版安装 ffmpeg 和 ffprobe。
-- 有 Nix 时，`nix build github:QWERChin/kikoeru-neo/v0.1.0#neo-server` 生成 `result/bin/kikoeru-neo`。它自带 ffmpeg，用法与单文件版相同。[NixOS 安装](install-nixos.md)说明如何配置系统服务。
+- 有 Nix 时，`nix build github:QWERChin/kikoeru-neo/v0.1.1#neo-server` 生成 `result/bin/kikoeru-neo`。它自带 ffmpeg，用法与单文件版相同。[NixOS 安装](install-nixos.md)说明如何配置系统服务。

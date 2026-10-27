@@ -1,7 +1,7 @@
 {
 	"name": "kikoeru-neo-web",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"type": "module",
 	"scripts": {
 		"gen:types": "cd .. && cargo run --locked -q -p neo-typegen -- web/src/lib/api/types",

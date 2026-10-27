@@ -1553,7 +1553,7 @@ checksum = "743fb55ba31b18fb1ecef6bdc9aa2743314978ac084044301a7eee33fb99a20d"
 
 [[package]]
 name = "neo-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "futures-util",
  "serde",
@@ -1569,7 +1569,7 @@ dependencies = [
 
 [[package]]
 name = "neo-db"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "neo-core",
  "neo-db",
@@ -1583,7 +1583,7 @@ dependencies = [
 
 [[package]]
 name = "neo-db-postgres"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "neo-core",
  "serde_json",
@@ -1595,7 +1595,7 @@ dependencies = [
 
 [[package]]
 name = "neo-db-sqlite"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "neo-core",
  "serde_json",
@@ -1607,7 +1607,7 @@ dependencies = [
 
 [[package]]
 name = "neo-media"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chardetng",
  "crc32fast",
@@ -1628,7 +1628,7 @@ dependencies = [
 
 [[package]]
 name = "neo-scanner"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "axum",
@@ -1659,7 +1659,7 @@ dependencies = [
 
 [[package]]
 name = "neo-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "argon2",
@@ -1710,7 +1710,7 @@ dependencies = [
 
 [[package]]
 name = "neo-storage"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "axum",
@@ -1733,7 +1733,7 @@ dependencies = [
 
 [[package]]
 name = "neo-typegen"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "neo-core",
  "ts-rs",
@@ -3665,7 +3665,7 @@ dependencies = [
 
 [[package]]
 name = "webdav-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "bytes",
