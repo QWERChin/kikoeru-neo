@@ -19,6 +19,6 @@ ENV KIKOERU_DATA_DIR=/data \
 EXPOSE 8888/tcp
 VOLUME ["/data", "/backup"]
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --start-interval=2s --retries=3 CMD ["/bin/kikoeru-neo-healthcheck"]
-LABEL org.opencontainers.image.version="0.1.0" \
+LABEL org.opencontainers.image.version="0.1.1" \
       org.opencontainers.image.source="https://github.com/QWERChin/kikoeru-neo" \
       org.opencontainers.image.licenses="GPL-3.0-or-later"

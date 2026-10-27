@@ -11,33 +11,33 @@ Choose one of the three ways below. All of them produce the same image layout, a
 Release images are published for `x86_64` Linux:
 
 ```sh
-docker pull ghcr.io/qwerchin/kikoeru-neo:0.1.0
+docker pull ghcr.io/qwerchin/kikoeru-neo:0.1.1
 ```
 
-`0.1.0` is a fixed version. `0.1` follows the newest patch release of the 0.1 series. No `latest` tag is published, so an upgrade only happens when you change the tag. The image is not published for `aarch64`; build it with the Dockerfile instead.
+`0.1.1` is a fixed version. `0.1` follows the newest patch release of the 0.1 series. No `latest` tag is published, so an upgrade only happens when you change the tag. The image is not published for `aarch64`; build it with the Dockerfile instead.
 
 ### Build with the Dockerfile
 
 This needs only Git and Docker, on `x86_64` or `aarch64` Linux. The Dockerfile runs Nix inside the build container and produces the same build that CI tests:
 
 ```sh
-git clone --branch v0.1.0 https://github.com/QWERChin/kikoeru-neo.git
+git clone --branch v0.1.1 https://github.com/QWERChin/kikoeru-neo.git
 cd kikoeru-neo
-docker build -t kikoeru-neo:0.1.0 .
+docker build -t kikoeru-neo:0.1.1 .
 ```
 
-The first build compiles the Rust server and a reduced ffmpeg from source, which took about 10 minutes on a 24-core test machine. The build cache needs about 10 GB of disk; `docker builder prune` removes it afterwards, and the final image is about 175 MB. Later builds reuse Docker's layer cache only when nothing in the source changed. A Dockerfile build has no Git metadata, so `/api/version` reports the version but no commit. Set `image: kikoeru-neo:0.1.0` in the Compose file below.
+The first build compiles the Rust server and a reduced ffmpeg from source, which took about 10 minutes on a 24-core test machine. The build cache needs about 10 GB of disk; `docker builder prune` removes it afterwards, and the final image is about 175 MB. Later builds reuse Docker's layer cache only when nothing in the source changed. A Dockerfile build has no Git metadata, so `/api/version` reports the version but no commit. Set `image: kikoeru-neo:0.1.1` in the Compose file below.
 
 ### Build with Nix
 
 With Nix and flakes enabled on Linux, the image is built without Docker and loaded afterwards:
 
 ```sh
-nix build github:QWERChin/kikoeru-neo/v0.1.0#docker-image --out-link docker-image
+nix build github:QWERChin/kikoeru-neo/v0.1.1#docker-image --out-link docker-image
 ./docker-image | docker load
 ```
 
-`docker-image` is a script that streams the image, not a tar file. It loads as `kikoeru-neo:0.1.0`. Set that name as `image` in the Compose file below.
+`docker-image` is a script that streams the image, not a tar file. It loads as `kikoeru-neo:0.1.1`. Set that name as `image` in the Compose file below.
 
 ## Prepare Compose
 
@@ -55,7 +55,7 @@ Save this as `compose.yaml`:
 ```yaml
 services:
   kikoeru-neo:
-    image: ghcr.io/qwerchin/kikoeru-neo:0.1.0
+    image: ghcr.io/qwerchin/kikoeru-neo:0.1.1
     restart: unless-stopped
     stop_grace_period: 30s
     read_only: true
