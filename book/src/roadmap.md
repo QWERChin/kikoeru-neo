@@ -50,7 +50,7 @@
 
 - [x] 首个 `v0.1.0` 发布：GHCR 镜像可匿名拉取，GitHub Release 的静态资产下载后校验通过，并在 Alpine 容器里启动成功。快速开始的 Docker 命令用发布镜像完整跑通。
 - [ ] 根 Dockerfile 和 Dev Container 需要在原生 aarch64 主机及 VS Code、JetBrains 中验证。状态：x86_64 的真实 Docker 主机上两者都已构建并通过冒烟，Ubuntu CI 在相关输入变化时重复这项检查。
-- [ ] 发布工作流在一个 runner 上构建全部检查。GitHub Actions 缓存限流时所有检查从头构建，`v0.1.0` 第一次运行时 `e2e` 因此失败，重跑通过。失败用例被 `log-lines 200` 截掉，无法确认原因。状态：待让发布检查在失败时保留完整的 e2e 报告，或复用 CI 已通过的结果。
+- [ ] 发布工作流在一个 runner 上构建全部检查。GitHub Actions 缓存限流时所有检查从头构建，`v0.1.0` 和 `v0.1.1` 第一次运行时 `e2e` 都失败了，重跑通过，同一提交在 CI 的单独 job 里通过。失败用例被 `log-lines 200` 截掉，无法确认原因。推测是所有检查同时构建时浏览器测试抢不到 CPU，尚未验证。状态：待让发布检查在失败时保留完整的 e2e 报告，或复用 CI 已通过的结果。
 - [x] 分配器比较：glibc、jemalloc、mimalloc 和 musl mallocng 在同一合成负载下各测一小时，静态包据此改用 jemalloc，glibc 构建保留 `MALLOC_ARENA_MAX=2`。见[测试与验证](testing.md#分配器测量)。
 - [ ] glibc 默认 malloc 在远端播放下每小时约 12 MiB 的 RSS 增长没有在一小时合成浸泡中复现。状态：要重新证明 `MALLOC_ARENA_MAX=2` 的必要性，需要更长的运行或更接近实际的远端负载。
 - [ ] `scripts/soak.py` 对没有时长的强制转码轨道仍按源扩展名估算读取码率，不能准确模拟 AAC 输出。状态：下次使用前按输出码率修正。
