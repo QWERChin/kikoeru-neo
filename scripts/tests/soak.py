@@ -1,8 +1,9 @@
-"""Test soak.py's CPU accounting without a running server."""
+"""Test soak.py's CPU accounting and playback pacing without a running server."""
 
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import Mock, patch
 
 spec = importlib.util.spec_from_file_location("soak", Path(__file__).parents[1] / "soak.py")
 soak = importlib.util.module_from_spec(spec)
@@ -51,6 +52,30 @@ class CpuFieldsTest(unittest.TestCase):
         reads = {1: [stat(), stat()], 2: [stat(utime=300, stime=100)]}
         fields, live = soak.cpu_fields(1, [2], lambda pid: reads[pid].pop(0))
         self.assertEqual((int(fields[13]), live), (0, 400))
+
+
+class PlayTest(unittest.TestCase):
+    def check_pace(self, duration_ms, expected_wait, force=True):
+        track = {"path": "test.flac", "size": 330_000, "duration_ms": duration_ms}
+        api = Mock()
+        api.request.return_value = (206, b"\0" * 48_000, {"content-range": "bytes 0-47999/48000"})
+        stop = Mock()
+        stop.is_set.return_value = False
+        with patch.object(soak.time, "monotonic", return_value=0):
+            soak.play(api, stop, soak.Stats(), "/stream", track, 60, force=force)
+        api.request.assert_called_once_with("GET", "/stream",
+                                            headers={"range": f"bytes=0-{soak.CHUNK - 1}"},
+                                            want_headers=True)
+        stop.wait.assert_called_once_with(expected_wait)
+
+    def test_forced_transcode_without_duration_uses_aac_rate(self):
+        self.check_pace(None, 2.0)
+
+    def test_forced_transcode_with_duration_uses_served_size(self):
+        self.check_pace(3_000, 3.0)
+
+    def test_normal_playback_without_duration_uses_source_rate(self):
+        self.check_pace(None, 48_000 / 110_000, force=False)
 
 
 unittest.main()

@@ -41,6 +41,8 @@ AUDIO_CAN_PLAY = ["audio/mpeg", "audio/mp4", "audio/aac", "audio/wav", "audio/fl
 HLS_CAN_PLAY = AUDIO_CAN_PLAY
 # Bytes per second when the duration is not known yet.
 RATE_BY_EXT = {"mp3": 40_000, "m4a": 32_000, "flac": 110_000, "ogg": 24_000, "wav": 200_000}
+# Bytes per second from -b:a 192k for aac-192k in crates/neo-media/src/transcode.rs.
+AAC_RATE = 192_000 // 8
 
 
 class Api:
@@ -172,10 +174,10 @@ def rate_of(track):
     return RATE_BY_EXT.get(ext, 64_000)
 
 
-def play(api, stop, stats, url, track, seconds):
-    """Reads `url` with Range requests at the track's rate for `seconds`,
+def play(api, stop, stats, url, track, seconds, force=False):
+    """Reads `url` with Range requests at playback rate for `seconds`,
     seeking now and then."""
-    rate = rate_of(track)
+    rate = AAC_RATE if force and not track.get("duration_ms") else rate_of(track)
     # A transcoded file is smaller than the track, so seeks use the length
     # the server reports rather than the track's size.
     size = None
@@ -302,7 +304,7 @@ def listener(api, lib, stop, stats, transcodes):
         threading.Thread(target=guarded, args=(analyse, stop, stats, api, stop, stats, track),
                          daemon=True).start()
         # A track switch every 4 to 10 minutes keeps link fetches far apart.
-        play(api, stop, stats, url, track, random_source().uniform(240, 600))
+        play(api, stop, stats, url, track, random_source().uniform(240, 600), force=force)
 
 
 def video(api, lib, stop, stats):
