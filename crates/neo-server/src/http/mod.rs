@@ -118,6 +118,7 @@ struct Inner {
     limiter: LoginLimiter,
     trusted_proxies: Vec<IpAddr>,
     data_dir: Option<DataDir>,
+    configured_passwords: Vec<std::path::PathBuf>,
     /// Roots and their storage backends. Roots added, edited or removed
     /// through the API change it while the server runs; requests already
     /// holding a storage keep it until they finish.
@@ -172,6 +173,7 @@ impl AppState {
             limiter: LoginLimiter::default(),
             trusted_proxies,
             data_dir: None,
+            configured_passwords: Vec::new(),
             registry: std::sync::RwLock::new(Registry::default()),
             root_changes: Arc::new(tokio::sync::Mutex::new(())),
             root_edits: tokio_util::task::TaskTracker::new(),
@@ -201,6 +203,12 @@ impl AppState {
     /// shared.
     pub fn with_data_dir(mut self, data_dir: DataDir) -> Self {
         self.inner_mut().data_dir = Some(data_dir);
+        self
+    }
+
+    /// Protects config-owned password files during runtime reclamation.
+    pub fn with_configured_passwords(mut self, paths: Vec<std::path::PathBuf>) -> Self {
+        self.inner_mut().configured_passwords = paths;
         self
     }
 

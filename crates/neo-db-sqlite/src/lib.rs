@@ -81,3 +81,12 @@ impl Db {
         Ok(busy == 0 && log == done)
     }
 }
+
+// The single writer and the cleanup checkpoint already order SQLite commits.
+async fn lock_stored_roots(_tx: &mut Tx<'_>) -> sqlx::Result<()> {
+    Ok(())
+}
+
+async fn prepare_root_cleanup(_tx: &mut Tx<'_>) -> sqlx::Result<()> {
+    Ok(())
+}

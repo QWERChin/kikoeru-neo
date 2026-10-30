@@ -39,7 +39,7 @@ pnpm test
 |---|---|
 | `rust-lint` | 检查 rustfmt、带和不带 `embed-web` 的 Clippy，以及 SQLite、PostgreSQL 两份 `cargo sqlx prepare --check`。 |
 | `rust-test` | 运行根 workspace 的 Rust 测试，打开 `embed-web` 检查真实前端产物，媒体测试使用 ffmpeg 和 ffprobe。桌面外壳是独立 workspace，不在其中。 |
-| `rust-test-pg` | 在临时 PostgreSQL 上运行 `db`、`legacy_state`、`pg_schema`、`db_copy`、`scan`、`metadata` 测试目标，并包含忽略的用例。它不是全部 Rust 测试的 PostgreSQL 重跑。 |
+| `rust-test-pg` | 在临时 PostgreSQL 上运行 `db`、`legacy_state`、`pg_schema`、`db_copy`、`scan`、`metadata`、`password_cleanup` 测试目标，并包含忽略的用例。`password_cleanup` 用延迟触发器暂停媒体库增删改的真实提交，验证另一实例的回收等待后保留新引用。它不是全部 Rust 测试的 PostgreSQL 重跑。 |
 | `neo-typegen` | 从 Rust DTO 生成 TypeScript，并用严格类型检查验证合同样本。 |
 | `web` | 构建静态前端，运行 `svelte-check` 和 Vitest，拒绝混入假数据的生产产物。 |
 | `neo-server` | 构建嵌入前端的发布包。包本身的 `doCheck` 为 `false`，Rust 测试与 lint 由独立检查执行。 |

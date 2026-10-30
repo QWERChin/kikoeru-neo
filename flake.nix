@@ -404,7 +404,7 @@
             export KIKOERU_TEST_BACKEND=postgres
             export KIKOERU_TEST_PG="postgres:///test_db?host=$NIX_BUILD_TOP/run/postgresql&user=test_user"
           '';
-          cargoTestExtraArgs = "--test db --test legacy_state --test pg_schema --test db_copy --test scan --test metadata -- --include-ignored";
+          cargoTestExtraArgs = "--test db --test legacy_state --test pg_schema --test db_copy --test scan --test metadata --test password_cleanup -- --include-ignored";
           preBuild = copyWeb pkgs;
         });
       # A standalone musl binary; administrators supply ffmpeg separately.

@@ -216,6 +216,7 @@ pub async fn start(data_dir: DataDir, config: Config, web: Option<WebSource>) ->
         config.trusted_proxies.clone(),
     )
     .with_data_dir(data_dir.clone())
+    .with_configured_passwords(library::configured_passwords(&config.roots))
     .with_watch_by_default(config.watch_by_default)
     .with_roots(loaded.entries)
     .with_scheduler(scheduler.clone())
@@ -394,7 +395,10 @@ async fn load_roots(db: &Db, data_dir: &Path, config: &Config) -> Result<LoadedR
     let secrets_root = data_dir.to_owned();
     let _secrets =
         tokio::task::spawn_blocking(move || library::lock_secrets(&secrets_root)).await??;
-    if let Err(e) = library::cleanup_passwords(data_dir, db).await {
+    if let Err(e) =
+        library::cleanup_passwords(data_dir, db, &library::configured_passwords(&config.roots))
+            .await
+    {
         tracing::warn!("cannot clean up unreferenced password files: {e:#}");
     }
     let names: Vec<_> = config

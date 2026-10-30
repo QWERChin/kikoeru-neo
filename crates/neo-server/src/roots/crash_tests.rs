@@ -271,13 +271,17 @@ async fn creation_removal_and_local_conversion_recover_after_crashes() {
         };
         for step in steps {
             let tmp = tempfile::tempdir().unwrap();
-            let dir = seed(tmp.path()).await;
+            // Deletion is only owned for versioned files. Legacy files without
+            // a committed replacement are covered by password_cleanup tests.
+            let dir = seed_layout(tmp.path(), "webdav", true).await;
             if operation == "create" {
                 let db = Db::open_sqlite(&dir.database()).await.unwrap();
                 let mut tx = db.begin().await.unwrap();
                 roots::remove_stored(&mut tx, "remote", 1).await.unwrap();
                 tx.commit().await.unwrap();
-                super::cleanup_passwords(dir.root(), &db).await.unwrap();
+                super::cleanup_passwords(dir.root(), &db, &[])
+                    .await
+                    .unwrap();
                 db.close().await;
             }
             crash(&dir, step, "webdav", operation).await;
