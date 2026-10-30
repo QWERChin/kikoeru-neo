@@ -470,7 +470,7 @@ async fn queue_limits_count_only_the_same_kind() {
     let third = enqueue(&db, "transcode", None, "{}", Some(2), 0)
         .await
         .unwrap();
-    assert_eq!(third, Enqueued::QueueFull);
+    assert!(matches!(third, Enqueued::QueueFull), "{third:?}");
 }
 
 #[tokio::test]

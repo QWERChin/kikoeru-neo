@@ -57,7 +57,13 @@ async fn wait_for(scheduler: &Scheduler, id: i64, state: &str) -> TaskRow {
     );
 }
 
-async fn db() -> (tempfile::TempDir, Db) {
+async fn db() -> (neo_db::testing::TestDb, Db) {
+    let test = neo_db::testing::open().await;
+    let db = test.db.clone();
+    (test, db)
+}
+
+async fn sqlite_db() -> (tempfile::TempDir, Db) {
     let dir = tempfile::tempdir().unwrap();
     let db = Db::open_sqlite(&dir.path().join("neo.sqlite3"))
         .await
@@ -278,7 +284,8 @@ async fn lanes_limit_concurrency_separately() {
 #[tokio::test]
 async fn restart_interrupts_running_tasks_and_resumes_queued_ones() {
     let (_dir, db) = db().await;
-    sqlx::raw_sql(
+    neo_db::testing::exec(
+        &db,
         "INSERT INTO tasks (id, kind, dedupe_key, state, payload, created_at, updated_at) VALUES
            (1, 'transcode', 'a', 'running', '{}', 0, 0),
            (2, 'transcode', 'b', 'queued', '{\"track\": 7}', 0, 0),
@@ -286,9 +293,7 @@ async fn restart_interrupts_running_tasks_and_resumes_queued_ones() {
            (4, 'transcode', 'd', 'done', '{}', 0, 9999999999999),
            (5, 'transcode', 'e', 'done', '{}', 0, 0)",
     )
-    .execute(&db.sqlite().unwrap().write)
-    .await
-    .unwrap();
+    .await;
     let scheduler = Scheduler::new(db, 1, 4);
     scheduler
         .recover(|row| {
@@ -593,13 +598,14 @@ async fn shutdown_right_after_recovery_keeps_every_queued_task_queued() {
     for id in 1..=64 {
         values.push(format!("({id}, 'transcode', 'queued', '{{}}', 0, 0)"));
     }
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
-        "INSERT INTO tasks (id, kind, state, payload, created_at, updated_at) VALUES {}",
-        values.join(",")
-    )))
-    .execute(&db.sqlite().unwrap().write)
-    .await
-    .unwrap();
+    neo_db::testing::exec(
+        &db,
+        &format!(
+            "INSERT INTO tasks (id, kind, state, payload, created_at, updated_at) VALUES {}",
+            values.join(",")
+        ),
+    )
+    .await;
     let scheduler = Scheduler::new(db, 4, 4);
     scheduler.shutdown(Duration::ZERO).await;
     scheduler
@@ -632,7 +638,7 @@ async fn a_job_holding_the_write_connection_still_times_out_promptly() {
     let job: Job = Box::new(move |ctx| {
         async move {
             // Holds the only write connection while progress is pending.
-            let _conn = db.sqlite().unwrap().write.acquire().await.unwrap();
+            let _tx = db.begin().await.unwrap();
             ctx.progress().send(0.5).unwrap();
             tokio::select! {
                 () = tokio::time::sleep(Duration::from_secs(300)) => {}
@@ -663,7 +669,7 @@ async fn a_job_holding_the_write_connection_still_times_out_promptly() {
 
 #[tokio::test]
 async fn a_failed_state_write_is_retried_until_it_succeeds() {
-    let (_dir, db) = db().await;
+    let (_dir, db) = sqlite_db().await;
     sqlx::raw_sql(
         "CREATE TRIGGER refuse_done BEFORE UPDATE ON tasks WHEN NEW.state = 'done'
          BEGIN SELECT RAISE(ABORT, 'injected failure'); END;",
@@ -743,7 +749,7 @@ async fn an_explicit_cancel_followed_by_shutdown_stays_cancelled() {
 
 #[tokio::test]
 async fn progress_writes_stay_a_second_apart_after_a_busy_writer() {
-    let (_dir, db) = db().await;
+    let (_dir, db) = sqlite_db().await;
     sqlx::raw_sql(
         "CREATE TABLE progress_log (at INTEGER NOT NULL);
          CREATE TRIGGER log_progress AFTER UPDATE OF progress ON tasks
