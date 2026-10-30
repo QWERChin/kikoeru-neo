@@ -174,7 +174,7 @@ pub async fn set_work_missing(
     Ok(())
 }
 
-/// The digest of every location of a root that has one.
+/// The digest or partial-walk marker of every location that has one.
 ///
 /// # Errors
 /// Any database error.
@@ -302,8 +302,8 @@ pub async fn mark_track_missing(
     Ok(())
 }
 
-/// Records a full walk and its digest, or clears both after a partial walk
-/// so later scans neither skip this location nor match progress against it.
+/// Records a full walk's time and digest, or a partial walk's empty-string
+/// marker with no time. Only a complete listing permits progress matching.
 ///
 /// # Errors
 /// Any database error.
@@ -388,7 +388,7 @@ pub async fn pending_imports(
     .await
 }
 
-/// Present locations of the work that no scan has listed yet, in any root.
+/// Present locations of the work that still need a complete listing, in any root.
 ///
 /// # Errors
 /// Any database error.
