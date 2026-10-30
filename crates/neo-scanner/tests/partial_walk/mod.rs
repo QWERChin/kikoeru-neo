@@ -105,6 +105,118 @@ async fn partial_walks_do_not_requeue_failed_probes_but_source_migration_does() 
     assert!(probes.0.lock().unwrap().is_empty());
 }
 
+#[tokio::test]
+async fn source_migration_reprobes_a_subtree_after_a_partial_walk_recovers() {
+    let server = webdav::start().await;
+    for base in ["/media", "/moved"] {
+        server.fake.dir(base);
+        server.fake.dir(&format!("{base}/RJ123456"));
+        server.fake.dir(&format!("{base}/RJ123456/blocked"));
+        server.fake.dir(&format!("{base}/RJ123456/readable"));
+        server.fake.file(
+            &format!("{base}/RJ123456/blocked/track.mp3"),
+            b"synthetic audio",
+        );
+        server.fake.file(
+            &format!("{base}/RJ123456/readable/broken.mp3"),
+            b"not audio",
+        );
+    }
+    let test_db = testing::open().await;
+    let db = &test_db.db;
+    let mut stored = roots::StoredRoot {
+        id: "test".into(),
+        display_name: "Synthetic".into(),
+        kind: "webdav".into(),
+        settings: serde_json::json!({"url": server.url(), "base_path": "/media"}).to_string(),
+    };
+    assert!(roots::insert_stored(db, &stored, NOW).await.unwrap());
+    let storage = WebDavStorage::new(server.client(), "/media").unwrap();
+    let mut root = Root {
+        id: "test",
+        storage: &storage,
+        probe_after_scan: true,
+        skip_unchanged: true,
+    };
+    let order = ["test".to_owned()];
+    let probes = Probes::default();
+    let first = scan_root(db, &root, &order, &probes, NOW).await.unwrap();
+    assert_eq!((first.tracks_new, first.works_failed), (2, 0));
+    assert_eq!(first.probe.len(), 2);
+    let mut tracks = Vec::new();
+    for id in first.probe {
+        tracks.push(media::track_file(db, id).await.unwrap().unwrap());
+    }
+    let blocked = tracks
+        .iter()
+        .find(|t| t.display_path == "blocked/track.mp3")
+        .unwrap();
+    let readable = tracks
+        .iter()
+        .find(|t| t.display_path == "readable/broken.mp3")
+        .unwrap();
+    media::save_probe(db, blocked, "{}", Some(1_000))
+        .await
+        .unwrap();
+
+    stored.settings = serde_json::json!({"url": server.url(), "base_path": "/moved"}).to_string();
+    assert!(
+        roots::update_stored(db, &stored, true, NOW + 1)
+            .await
+            .unwrap()
+    );
+    let invalidated = media::track_file(db, blocked.id).await.unwrap().unwrap();
+    assert_eq!((invalidated.probe, invalidated.duration_ms), (None, None));
+    assert_eq!(invalidated.source_version, blocked.source_version + 1);
+    let moved_storage = WebDavStorage::new(server.client(), "/moved").unwrap();
+    root.storage = &moved_storage;
+    server.fake.fault(
+        "/moved/RJ123456/blocked",
+        webdav::Fault::Status {
+            status: 403,
+            times: 1,
+            retry_after: None,
+        },
+    );
+    probes.0.lock().unwrap().clear();
+    let partial = scan_root(db, &root, &order, &probes, NOW + 1)
+        .await
+        .unwrap();
+    assert_eq!((partial.works_failed, partial.works_unchanged), (1, 0));
+    assert_eq!((partial.tracks_new, partial.tracks_changed), (0, 0));
+    assert_eq!(partial.probe, [readable.id]);
+    assert_eq!(*probes.0.lock().unwrap(), [readable.id]);
+
+    // The readable file's probe fails again. Recovery must still queue the
+    // blocked track, even though neither file's size or mtime has changed.
+    probes.0.lock().unwrap().clear();
+    let recovered = scan_root(db, &root, &order, &probes, NOW + 2)
+        .await
+        .unwrap();
+    assert_eq!((recovered.works_failed, recovered.works_unchanged), (0, 0));
+    assert_eq!((recovered.tracks_new, recovered.tracks_changed), (0, 0));
+    assert!(recovered.probe.contains(&blocked.id), "{recovered:?}");
+    assert!(recovered.probe.contains(&readable.id));
+    assert_eq!(recovered.probe.len(), 2);
+    assert_eq!(*probes.0.lock().unwrap(), recovered.probe);
+    for before in &tracks {
+        let after = media::track_file(db, before.id).await.unwrap().unwrap();
+        assert_eq!((after.size, after.mtime), (before.size, before.mtime));
+    }
+
+    probes.0.lock().unwrap().clear();
+    let unchanged = scan_root(db, &root, &order, &probes, NOW + 3)
+        .await
+        .unwrap();
+    assert_eq!(unchanged.works_unchanged, 1);
+    root.skip_unchanged = false;
+    let full = scan_root(db, &root, &order, &probes, NOW + 4)
+        .await
+        .unwrap();
+    assert!(full.probe.is_empty());
+    assert!(probes.0.lock().unwrap().is_empty());
+}
+
 const INITIAL: &[(&str, &[u8])] = &[
     ("blocked/keep.mp3", b"one"),
     ("blocked/deep/remove.mp3", b"two"),

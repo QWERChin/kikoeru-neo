@@ -222,13 +222,21 @@ pub async fn apply_listing(
             summary.tracks_missing += 1;
         }
     }
-    // An empty marker cannot match a SHA-256 digest. NULL would also
-    // requeue unchanged files whose probes failed, as after relocation.
+    // Keep pending re-probes until a complete walk, even if readable siblings
+    // with failed probes are requeued meanwhile. An empty marker only forces
+    // another walk when no re-probe is pending.
+    let listing_hash = if complete {
+        Some(digest.as_str())
+    } else if reprobe {
+        None
+    } else {
+        Some("")
+    };
     scan::set_listed(
         &mut tx,
         location.location_id,
         complete.then_some(now),
-        Some(if complete { digest.as_str() } else { "" }),
+        listing_hash,
     )
     .await?;
     tx.commit().await?;
