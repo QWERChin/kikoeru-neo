@@ -302,15 +302,16 @@ pub async fn mark_track_missing(
     Ok(())
 }
 
-/// Records a full walk of a location and the digest of its top level.
+/// Records a full walk and its digest, or clears both after a partial walk
+/// so later scans neither skip this location nor match progress against it.
 ///
 /// # Errors
 /// Any database error.
 pub async fn set_listed(
     tx: &mut crate::Tx<'_>,
     location_id: i64,
-    now: i64,
-    digest: &str,
+    now: Option<i64>,
+    digest: Option<&str>,
 ) -> sqlx::Result<()> {
     sqlx::query!(
         "UPDATE work_locations SET listed_at = $1, listing_hash = $2 WHERE id = $3",

@@ -10,7 +10,9 @@ mod openlist;
 mod path;
 mod webdav;
 
-use std::{fs::File, path::PathBuf, sync::Arc};
+use std::{collections::HashSet, fs::File, path::PathBuf, sync::Arc};
+
+use futures_util::{StreamExt, stream::FuturesUnordered};
 
 pub use local::LocalStorage;
 pub use openlist::OpenListStorage;
@@ -43,12 +45,22 @@ pub struct Entry {
     pub etag: Option<String>,
 }
 
-/// A file or directory found by [`Storage::walk`], with its path relative
-/// to the walked directory.
+/// A file or directory found by [`Storage::walk`] or [`Storage::walk_partial`],
+/// with its path relative to the walked directory.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WalkEntry {
     pub path: RawPath,
     pub entry: Entry,
+}
+
+/// A tree with holes at directories that could not be listed. Both entry
+/// and failure paths are relative to the walked directory.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct PartialWalk {
+    pub entries: Vec<WalkEntry>,
+    /// Neither these paths nor their descendants may be treated as seen
+    /// or missing. A directory entry from its parent is not a full listing.
+    pub failed: Vec<(RawPath, StorageError)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -154,6 +166,12 @@ pub trait Storage: Send + Sync {
         DEFAULT_LIST_CONCURRENCY
     }
 
+    /// Lists readable subtrees and records failed directories separately.
+    /// A failure at `dir` itself still fails the entire call.
+    async fn walk_partial(&self, dir: &RawPath) -> Result<PartialWalk, StorageError> {
+        walk_partial(self, dir, 1).await
+    }
+
     /// Every file and directory below `dir`. A directory comes before its
     /// contents, and siblings keep the order of their listing. Symlinks and
     /// other special entries are returned but not descended into. Any failed
@@ -189,6 +207,66 @@ pub trait Storage: Send + Sync {
         }
         Ok(found)
     }
+}
+
+/// Uses the same complete-listing boundary for every backend. OpenList's
+/// client partial walk drops repeated names, while scans keep the first.
+async fn walk_partial(
+    storage: &(impl Storage + ?Sized),
+    dir: &RawPath,
+    concurrency: usize,
+) -> Result<PartialWalk, StorageError> {
+    let mut walk = PartialWalk::default();
+    let mut pending = vec![RawPath::root()];
+    let mut visited = HashSet::from([RawPath::root()]);
+    let mut listings = FuturesUnordered::new();
+    loop {
+        while listings.len() < concurrency.max(1) {
+            let Some(rel) = pending.pop() else { break };
+            listings.push(async move {
+                let result = match storage.list(&dir.join_path(&rel)).await {
+                    Ok(entries) => entries
+                        .into_iter()
+                        .map(|entry| {
+                            let path = rel.join(&entry.name).map_err(|e| {
+                                StorageError::Upstream(format!("bad name in listing: {e}"))
+                            })?;
+                            Ok(WalkEntry { path, entry })
+                        })
+                        .collect::<Result<Vec<_>, StorageError>>(),
+                    Err(error) => Err(error),
+                };
+                (rel, result)
+            });
+        }
+        let Some((rel, result)) = listings.next().await else {
+            break;
+        };
+        match result {
+            Ok(entries) => {
+                let subdirs: Vec<_> = entries
+                    .iter()
+                    .filter(|item| item.entry.kind == EntryKind::Dir)
+                    .filter(|item| visited.insert(item.path.clone()))
+                    .map(|item| item.path.clone())
+                    .collect();
+                pending.extend(subdirs.into_iter().rev());
+                walk.entries.extend(entries);
+            }
+            Err(error) if rel.is_root() => return Err(error),
+            Err(error) => {
+                let error = match error {
+                    StorageError::NotFound => StorageError::Unavailable(format!(
+                        "{} changed during the walk",
+                        dir.join_path(&rel).to_string_lossy()
+                    )),
+                    other => other,
+                };
+                walk.failed.push((rel, error));
+            }
+        }
+    }
+    Ok(walk)
 }
 
 #[cfg(test)]
@@ -236,5 +314,21 @@ mod tests {
         ));
         let gone = RawPath::new("gone").unwrap();
         assert_eq!(Vanishing.walk(&gone).await, Err(StorageError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn a_partial_walk_records_vanished_children_but_still_fails_at_its_root() {
+        let walk = Vanishing
+            .walk_partial(&RawPath::new("a").unwrap())
+            .await
+            .unwrap();
+        assert_eq!(walk.entries.len(), 1);
+        assert_eq!(walk.failed.len(), 1);
+        assert_eq!(walk.failed[0].0, RawPath::new("b").unwrap());
+        assert!(matches!(walk.failed[0].1, StorageError::Unavailable(_)));
+        assert_eq!(
+            Vanishing.walk_partial(&RawPath::new("gone").unwrap()).await,
+            Err(StorageError::NotFound)
+        );
     }
 }

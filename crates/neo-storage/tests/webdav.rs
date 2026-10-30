@@ -105,6 +105,10 @@ async fn an_empty_root_is_unavailable_for_list_and_walk() {
         let expected =
             StorageError::Unavailable(format!("{base} is empty; is the WebDAV base path correct?"));
         assert_eq!(storage.list(&RawPath::root()).await, Err(expected.clone()));
+        assert_eq!(
+            storage.walk_partial(&RawPath::root()).await,
+            Err(expected.clone())
+        );
         assert_eq!(storage.walk(&RawPath::root()).await, Err(expected));
     }
 }

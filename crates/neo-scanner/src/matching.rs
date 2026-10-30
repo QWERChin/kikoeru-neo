@@ -35,9 +35,9 @@ pub async fn match_work(
     if pending.is_empty() {
         return Ok(());
     }
-    // Every present location must have been listed at least once, in any
-    // root. An imported location in a root not scanned yet may hold the
-    // second candidate for an old path, and a match is never revisited.
+    // Every present location needs a complete listing. An unscanned or
+    // partially listed location may hold a second candidate for an old
+    // path, and a match is never revisited.
     let unlisted = scan::unlisted_locations(tx, work_id).await?;
     if unlisted > 0 {
         summary.pending_deferred += pending.len() as u64;

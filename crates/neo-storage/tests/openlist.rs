@@ -58,6 +58,61 @@ async fn walk_returns_paths_relative_to_the_walked_directory() {
 }
 
 #[tokio::test]
+async fn partial_walk_discards_failed_pages_and_keeps_duplicate_order() {
+    let (server, _) = library().await;
+    server.fake.put(
+        "/media/voice/RJ01",
+        vec![
+            dir("mp3"),
+            dir("wav"),
+            file("cover.jpg", 4),
+            file("cover.jpg", 99),
+        ],
+    );
+    server.fake.put(
+        "/media/voice/RJ01/mp3",
+        vec![file("01.mp3", 10), file("02.mp3", 20)],
+    );
+    server
+        .fake
+        .put("/media/voice/RJ01/wav", vec![file("01.wav", 30)]);
+    *server.fake.fail_page.lock().unwrap() = Some(("/media/voice/RJ01/mp3".into(), 2));
+    *server.fake.list_delay.lock().unwrap() = std::time::Duration::from_millis(10);
+    let mut config = server.config();
+    config.per_page = 1;
+    config.list_concurrency = 2;
+    let storage = OpenListStorage::new(
+        openlist_client::Client::new(config).unwrap(),
+        "/media/voice",
+    )
+    .unwrap();
+    let walk = storage.walk_partial(&raw("RJ01")).await.unwrap();
+    let paths: Vec<_> = walk
+        .entries
+        .iter()
+        .map(|item| item.path.to_string_lossy())
+        .collect();
+    assert_eq!(
+        paths,
+        ["cover.jpg", "cover.jpg", "mp3", "wav", "wav/01.wav"]
+    );
+    assert_eq!(
+        (walk.entries[0].entry.size, walk.entries[1].entry.size),
+        (Some(4), Some(99))
+    );
+    assert_eq!(walk.failed.len(), 1);
+    assert_eq!(walk.failed[0].0, raw("mp3"));
+    assert!(matches!(walk.failed[0].1, StorageError::Unavailable(_)));
+    assert_eq!(
+        server
+            .fake
+            .list_peak
+            .load(std::sync::atomic::Ordering::SeqCst),
+        2
+    );
+}
+
+#[tokio::test]
 async fn a_missing_base_path_is_unavailable_never_empty_or_missing() {
     let (server, _) = library().await;
     let storage = OpenListStorage::new(server.client(), "/media/unmounted").unwrap();
@@ -81,6 +136,10 @@ async fn an_empty_root_is_unavailable_for_list_and_walk() {
             "{base} is empty; is the OpenList base path correct?"
         ));
         assert_eq!(storage.list(&RawPath::root()).await, Err(expected.clone()));
+        assert_eq!(
+            storage.walk_partial(&RawPath::root()).await,
+            Err(expected.clone())
+        );
         assert_eq!(storage.walk(&RawPath::root()).await, Err(expected));
     }
 }
@@ -103,6 +162,10 @@ async fn an_empty_subdirectory_is_normal_for_list_and_walk() {
 #[tokio::test]
 async fn a_missing_work_directory_is_not_found() {
     let (_server, storage) = library().await;
+    assert_eq!(
+        storage.walk_partial(&raw("RJ99")).await,
+        Err(StorageError::NotFound)
+    );
     assert_eq!(
         storage.walk(&raw("RJ99")).await,
         Err(StorageError::NotFound)

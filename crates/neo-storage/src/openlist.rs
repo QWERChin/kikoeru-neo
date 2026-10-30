@@ -10,8 +10,8 @@ use futures_util::StreamExt;
 use openlist_client::{Client, Entry as ListEntry, ErrorKind};
 
 use crate::{
-    Access, Entry, EntryKind, RawPath, RemoteFile, RemoteOpen, RemoteResponse, Source, Storage,
-    StorageError, WalkEntry,
+    Access, Entry, EntryKind, PartialWalk, RawPath, RemoteFile, RemoteOpen, RemoteResponse, Source,
+    Storage, StorageError, WalkEntry,
 };
 
 #[derive(Debug, Clone)]
@@ -162,6 +162,15 @@ impl Storage for OpenListStorage {
 
     async fn access(&self, path: &RawPath) -> Result<Access, StorageError> {
         self.remote(path).await.map(Access::Remote)
+    }
+
+    async fn walk_partial(&self, dir: &RawPath) -> Result<PartialWalk, StorageError> {
+        let mut walk = crate::walk_partial(self, dir, self.list_concurrency()).await?;
+        // Keep the client's full walk ordering, including the first of
+        // repeated names, regardless of which listing finishes first.
+        walk.entries.sort_by(|a, b| a.path.cmp(&b.path));
+        walk.failed.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(walk)
     }
 
     /// The client's concurrent walk. As in the default walk, a directory
