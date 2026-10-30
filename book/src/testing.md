@@ -39,7 +39,7 @@ pnpm test
 |---|---|
 | `rust-lint` | 检查 rustfmt、带和不带 `embed-web` 的 Clippy，以及 SQLite、PostgreSQL 两份 `cargo sqlx prepare --check`。 |
 | `rust-test` | 运行根 workspace 的 Rust 测试，打开 `embed-web` 检查真实前端产物，媒体测试使用 ffmpeg 和 ffprobe。桌面外壳是独立 workspace，不在其中。 |
-| `rust-test-pg` | 在临时 PostgreSQL 上运行 `db`、`legacy_state`、`pg_schema`、`db_copy`、`scan`、`metadata`、`password_cleanup` 测试目标，并包含忽略的用例。`password_cleanup` 用延迟触发器暂停媒体库增删改的真实提交，验证另一实例的回收等待后保留新引用。它不是全部 Rust 测试的 PostgreSQL 重跑。 |
+| `rust-test-pg` | 在临时 PostgreSQL 上运行 `db`、`legacy_state`、`pg_schema`、`db_copy`、`tasks`、`scan`、`metadata`、`password_cleanup` 测试目标，并包含忽略的用例。`tasks` 包含入队提交结果不确定时的故障注入，固定使用 SQLite 的夹具仍运行在 SQLite 上。`password_cleanup` 用延迟触发器暂停媒体库增删改的真实提交，验证另一实例的回收等待后保留新引用。它不是全部 Rust 测试的 PostgreSQL 重跑。 |
 | `neo-typegen` | 从 Rust DTO 生成 TypeScript，并用严格类型检查验证合同样本。 |
 | `web` | 构建静态前端，运行 `svelte-check` 和 Vitest，拒绝混入假数据的生产产物。 |
 | `neo-server` | 构建嵌入前端的发布包。包本身的 `doCheck` 为 `false`，Rust 测试与 lint 由独立检查执行。 |
@@ -71,15 +71,14 @@ GitHub Actions 的 `CI` 工作流在托管 runner 上按检查分别运行，检
 
 数据库测试用临时库覆盖迁移、事务、去重、缺失标记、用户状态和复制。`pg_schema` 比较两种数据库的结构，但不完整比较 `CHECK` 表达式。`progress_order`、`root_media` 和 `folder_cover` 等可切换后端的目标没有列入当前 `rust-test-pg` 命令，这是覆盖缺口。
 
-调度器的 `tasks` 集成测试也支持切换后端，但 SQLite 专用触发器、文件重开和 HTTP 测试夹具仍使用临时 SQLite。验证 PostgreSQL 入队提交结果不确定时，在开发环境里用 `initdb` 和 `pg_ctl` 启动只监听 Unix socket 的临时服务器，把 `KIKOERU_TEST_PG` 指向它，并运行：
+调度器的 `tasks` 集成测试已纳入 `rust-test-pg`，支持切换后端，但 SQLite 专用触发器、文件重开和 HTTP 测试夹具仍使用临时 SQLite。本地验证 PostgreSQL 入队提交结果不确定时，在开发环境里用 `initdb` 和 `pg_ctl` 启动只监听 Unix socket 的临时服务器，把 `KIKOERU_TEST_PG` 指向它，并运行：
 
 ```sh
 KIKOERU_TEST_BACKEND=postgres cargo test --locked -p neo-server --test tasks
-KIKOERU_TEST_BACKEND=postgres cargo test --locked -p neo-server --lib tasks::tests -- --include-ignored
 KIKOERU_TEST_BACKEND=postgres cargo test --locked -p neo-db --test db
 ```
 
-单元测试中的故障注入只在测试构建启用。它完成真实事务的提交或回滚后返回连接错误，验证原任务能继续执行、去重不会运行第二份任务，以及未提交的任务不会执行。PostgreSQL 专用用例默认忽略，以上命令显式启用它们，当前 `rust-test-pg` 检查尚未包含这两个调度器测试目标。
+故障注入通过 `neo-db` 的 `testing` 开发依赖启用。它完成真实事务的提交或回滚后返回连接错误，通过公开的 `Scheduler::submit` 验证带去重键和不带去重键的原任务都能继续执行、去重不会运行第二份任务，以及未提交的任务不会执行。三个 PostgreSQL 专用用例在 SQLite 模式下直接跳过，在 PostgreSQL 模式下默认执行，CI 无需单独运行调度器单元测试来覆盖它们。
 
 进程级测试实际启动 `serve` 和 `user` 命令，通过回环 HTTP 检查首次管理员初始化、密码重设、删除用户、重启后 token、密钥更换、非法配置和失败退出。API 测试直接调用 axum 路由，媒体测试覆盖 Range、HEAD、错误状态、取消、缓存发布和临时文件清理。
 
