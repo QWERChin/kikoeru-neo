@@ -1,10 +1,109 @@
 //! Partial listings sync readable siblings without trusting failed subtrees.
 
 use super::{NOW, fake_openlist as openlist, fake_webdav as webdav, set_mode};
-use neo_db::{Db, roots, scan, testing};
-use neo_scanner::{NoObserver, Root, scan_root};
+use neo_db::{Db, media, roots, scan, testing};
+use neo_scanner::{NoObserver, Observer, Root, scan_root};
 use neo_storage::{LocalStorage, OpenListStorage, Storage, WebDavStorage};
-use std::fs;
+use std::{fs, sync::Mutex};
+
+#[derive(Default)]
+struct Probes(Mutex<Vec<i64>>);
+
+impl Observer for Probes {
+    fn probe(&self, ids: &[i64]) {
+        self.0.lock().unwrap().extend_from_slice(ids);
+    }
+}
+
+#[tokio::test]
+async fn partial_walks_do_not_requeue_failed_probes_but_source_migration_does() {
+    let server = webdav::start().await;
+    for base in ["/media", "/moved"] {
+        server.fake.dir(base);
+        server.fake.dir(&format!("{base}/RJ123456"));
+        server.fake.dir(&format!("{base}/RJ123456/blocked"));
+        server.fake.dir(&format!("{base}/RJ123456/readable"));
+        server.fake.file(
+            &format!("{base}/RJ123456/readable/broken.mp3"),
+            b"not audio",
+        );
+    }
+    let test_db = testing::open().await;
+    let db = &test_db.db;
+    let mut stored = roots::StoredRoot {
+        id: "test".into(),
+        display_name: "Synthetic".into(),
+        kind: "webdav".into(),
+        settings: serde_json::json!({"url": server.url(), "base_path": "/media"}).to_string(),
+    };
+    assert!(roots::insert_stored(db, &stored, NOW).await.unwrap());
+    let storage = WebDavStorage::new(server.client(), "/media").unwrap();
+    let mut root = Root {
+        id: "test",
+        storage: &storage,
+        probe_after_scan: true,
+        skip_unchanged: false,
+    };
+    let order = ["test".to_owned()];
+    let probes = Probes::default();
+    let first = scan_root(db, &root, &order, &probes, NOW).await.unwrap();
+    assert_eq!((first.tracks_new, first.works_failed), (1, 0));
+    assert_eq!(first.probe.len(), 1);
+    assert_eq!(*probes.0.lock().unwrap(), first.probe);
+    let track_id = first.probe[0];
+    // A failed probe writes no result. Leave it empty while the file's
+    // size and modification time stay unchanged through every scan.
+    let before = media::track_file(db, track_id).await.unwrap().unwrap();
+    assert_eq!(before.probe, None);
+    probes.0.lock().unwrap().clear();
+
+    for round in 1..=3 {
+        server.fake.fault(
+            "/media/RJ123456/blocked",
+            webdav::Fault::Status {
+                status: 403,
+                times: 1,
+                retry_after: None,
+            },
+        );
+        let partial = scan_root(db, &root, &order, &probes, NOW + round)
+            .await
+            .unwrap();
+        assert_eq!((partial.works_failed, partial.works_unchanged), (1, 0));
+        assert_eq!((partial.tracks_new, partial.tracks_changed), (0, 0));
+        assert!(partial.probe.is_empty(), "round {round}: {partial:?}");
+        assert!(probes.0.lock().unwrap().is_empty(), "round {round}");
+        // Later scans may compare the top level, but must still walk.
+        root.skip_unchanged = true;
+    }
+
+    stored.settings = serde_json::json!({"url": server.url(), "base_path": "/moved"}).to_string();
+    assert!(
+        roots::update_stored(db, &stored, true, NOW + 4)
+            .await
+            .unwrap()
+    );
+    let moved_storage = WebDavStorage::new(server.client(), "/moved").unwrap();
+    root.storage = &moved_storage;
+    let migrated = scan_root(db, &root, &order, &probes, NOW + 4)
+        .await
+        .unwrap();
+    assert_eq!((migrated.tracks_new, migrated.tracks_changed), (0, 0));
+    assert_eq!((migrated.works_failed, migrated.works_unchanged), (0, 0));
+    assert_eq!(migrated.probe, [track_id]);
+    assert_eq!(*probes.0.lock().unwrap(), [track_id]);
+    let after = media::track_file(db, track_id).await.unwrap().unwrap();
+    assert_eq!((after.size, after.mtime), (before.size, before.mtime));
+    assert_eq!(after.source_version, before.source_version + 1);
+
+    probes.0.lock().unwrap().clear();
+    root.skip_unchanged = false;
+    let next = scan_root(db, &root, &order, &probes, NOW + 5)
+        .await
+        .unwrap();
+    assert!(next.probe.is_empty());
+    assert!(probes.0.lock().unwrap().is_empty());
+}
 
 const INITIAL: &[(&str, &[u8])] = &[
     ("blocked/keep.mp3", b"one"),
@@ -237,7 +336,10 @@ async fn partial_walk_syncs_and_recovers(storage: &dyn Storage, mut change: impl
         "{:?}",
         partial.log
     );
-    assert!(scan::stored_digests(db, "test").await.unwrap().is_empty());
+    assert_eq!(
+        scan::stored_digests(db, "test").await.unwrap(),
+        [(1, String::new())]
+    );
     let listed: Option<i64> = testing::value(db, "SELECT listed_at FROM work_locations").await;
     assert_eq!(listed, None);
     let state: String = testing::value(db, "SELECT state FROM import_pending").await;

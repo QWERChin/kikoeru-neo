@@ -36,8 +36,8 @@ pub enum Listing {
     Failed(StorageError),
 }
 
-/// The digest each location had after its last full walk. Read once before
-/// listing starts, so listings never hold a database connection.
+/// Each location's last full digest or partial-walk marker. Read once
+/// before listing starts, so listings never hold a database connection.
 pub async fn stored_digests(db: &Db, root: &Root<'_>) -> Result<HashMap<i64, String>, sqlx::Error> {
     Ok(scan::stored_digests(db, root.id)
         .await?
@@ -222,11 +222,13 @@ pub async fn apply_listing(
             summary.tracks_missing += 1;
         }
     }
+    // An empty marker cannot match a SHA-256 digest. NULL would also
+    // requeue unchanged files whose probes failed, as after relocation.
     scan::set_listed(
         &mut tx,
         location.location_id,
         complete.then_some(now),
-        complete.then_some(digest.as_str()),
+        Some(if complete { digest.as_str() } else { "" }),
     )
     .await?;
     tx.commit().await?;

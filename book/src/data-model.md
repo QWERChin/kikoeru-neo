@@ -88,8 +88,8 @@ CREATE TABLE work_locations (
   root_id       TEXT NOT NULL REFERENCES roots(id),
   rel_path      BLOB NOT NULL,                -- 作品目录的原始路径
   display_path  TEXT NOT NULL,
-  listing_hash  TEXT,                         -- 上次完整列出时目录内容的摘要，见“扫描”
-  listed_at     INTEGER,
+  listing_hash  TEXT,                         -- 完整列举的摘要、部分遍历的空字符串标记或 NULL，见下文
+  listed_at     INTEGER,                      -- 完整列举的时间，部分遍历时清空
   missing_at    INTEGER,
   UNIQUE (root_id, rel_path)
 );
@@ -102,6 +102,8 @@ CREATE TABLE work_tags (work_id INTEGER REFERENCES works(id) ON DELETE CASCADE,
                         tag_id  INTEGER REFERENCES tags(id)  ON DELETE CASCADE,
                         PRIMARY KEY (work_id, tag_id));
 ```
+
+`listing_hash` 保存完整列举的 SHA-256 十六进制摘要。部分遍历改存空字符串，它不可能等于真实摘要，因此下次扫描仍会遍历，但不会像 `NULL` 一样触发未变化轨道的补探测。新位置的初始值为 `NULL`，位置缺失或媒体库来源迁移也会将它设为 `NULL`，让扫描重新遍历并补排没有探测结果的轨道。部分遍历同时清空 `listed_at`，进度补匹配只依赖这个完整列举标记，不能把 `listing_hash IS NOT NULL` 当作已完整列出的依据。
 
 `metadata_src` 的转换规则：
 
