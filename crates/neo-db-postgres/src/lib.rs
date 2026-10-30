@@ -92,3 +92,21 @@ impl Db {
         self.write.close().await;
     }
 }
+
+// This namespace/key pair is reserved for stored-root edits and reclamation.
+// A backend can finish COMMIT after its application lost the secrets file lock.
+async fn lock_stored_roots(tx: &mut Tx<'_>) -> sqlx::Result<()> {
+    sqlx::query("SELECT pg_advisory_xact_lock(1802396973, 1)")
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
+}
+
+async fn prepare_root_cleanup(tx: &mut Tx<'_>) -> sqlx::Result<()> {
+    // SERIALIZABLE would keep the snapshot taken by the lock statement,
+    // missing an edit that commits while that statement waits for the lock.
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
+}

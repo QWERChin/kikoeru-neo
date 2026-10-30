@@ -46,13 +46,33 @@ pub async fn with_works_outside(
 /// # Errors
 /// Any database error.
 pub async fn list_stored(pool: &crate::Pool) -> sqlx::Result<Vec<StoredRoot>> {
+    stored_rows(&mut *pool.acquire().await?).await
+}
+
+/// Waits for earlier root edits before collecting committed password references.
+/// The caller holds the secrets file lock until reclamation finishes.
+///
+/// # Errors
+/// Any database error.
+pub async fn list_stored_for_cleanup(pool: &crate::Pool) -> sqlx::Result<Vec<StoredRoot>> {
+    let mut tx = pool.begin().await?;
+    crate::prepare_root_cleanup(&mut tx).await?;
+    crate::lock_stored_roots(&mut tx).await?;
+    let rows = stored_rows(&mut tx).await?;
+    tx.commit().await?;
+    Ok(rows)
+}
+
+async fn stored_rows(
+    conn: &mut <crate::Database as sqlx::Database>::Connection,
+) -> sqlx::Result<Vec<StoredRoot>> {
     sqlx::query_as!(
         StoredRoot,
         r#"SELECT s.root_id AS "id!", r.display_name, s.kind, s.settings
            FROM root_settings s JOIN roots r ON r.id = s.root_id
            ORDER BY s.created_at, s.root_id"#
     )
-    .fetch_all(pool)
+    .fetch_all(conn)
     .await
 }
 
@@ -64,6 +84,7 @@ pub async fn list_stored(pool: &crate::Pool) -> sqlx::Result<Vec<StoredRoot>> {
 /// Any database error.
 pub async fn insert_stored(pool: &crate::Pool, root: &StoredRoot, now: i64) -> sqlx::Result<bool> {
     let mut tx = pool.begin().await?;
+    crate::lock_stored_roots(&mut tx).await?;
     let exists = sqlx::query_scalar!(
         r#"SELECT EXISTS (SELECT 1 FROM root_settings WHERE root_id = $1) AS "e!: bool""#,
         root.id
@@ -110,6 +131,7 @@ pub async fn update_stored(
     now: i64,
 ) -> sqlx::Result<bool> {
     let mut tx = pool.begin().await?;
+    crate::lock_stored_roots(&mut tx).await?;
     let done = sqlx::query!(
         "UPDATE root_settings SET kind = $1, settings = $2, updated_at = $3 WHERE root_id = $4",
         root.kind,
@@ -179,6 +201,7 @@ pub async fn remove_stored(
     id: &str,
     now: i64,
 ) -> sqlx::Result<Option<Vec<i64>>> {
+    crate::lock_stored_roots(tx).await?;
     let done = sqlx::query!("DELETE FROM root_settings WHERE root_id = $1", id)
         .execute(&mut **tx)
         .await?;

@@ -276,17 +276,42 @@ pub fn lock_secrets(data_dir: &Path) -> Result<fs::File> {
     Ok(file)
 }
 
+/// Configured password paths stay protected even before their clients load.
+pub fn configured_passwords(roots: &[RootConfig]) -> Vec<PathBuf> {
+    roots
+        .iter()
+        .filter_map(|root| match &root.backend {
+            RootBackend::Local { .. } => None,
+            RootBackend::OpenList { password_file, .. }
+            | RootBackend::WebDav { password_file, .. } => Some(password_file.clone()),
+        })
+        .collect()
+}
+
 /// Called under `secrets/.lock`, after a commit or at startup. Read every
 /// row, including roots hidden by config.toml, before deleting anything.
 /// Failed or uncertain commits leave both versions for this same sweep.
-pub async fn cleanup_passwords(data_dir: &Path, db: &neo_db::Db) -> Result<()> {
-    let rows = neo_db::roots::list_stored(db).await?;
+pub async fn cleanup_passwords(
+    data_dir: &Path,
+    db: &neo_db::Db,
+    configured_passwords: &[PathBuf],
+) -> Result<()> {
+    let rows = neo_db::roots::list_stored_for_cleanup(db).await?;
     let mut referenced = HashSet::new();
+    let mut superseded = HashSet::new();
+    for path in configured_passwords {
+        referenced.insert(fs::canonicalize(path)?);
+    }
     for row in rows {
         let settings: StoredSettings = serde_json::from_str(&row.settings)
             .with_context(|| format!("cannot collect password references for root {}", row.id))?;
         if !matches!(settings, StoredSettings::Local { .. }) {
-            referenced.insert(settings.password_path(data_dir, &row.id)?);
+            referenced.insert(fs::canonicalize(
+                settings.password_path(data_dir, &row.id)?,
+            )?);
+            if settings.password_version().is_some() {
+                superseded.insert(row.id);
+            }
         }
     }
     // SQLite uses WAL NORMAL. Flush the committed reference changes before
@@ -314,9 +339,9 @@ pub async fn cleanup_passwords(data_dir: &Path, db: &neo_db::Db) -> Result<()> {
         };
         let managed = match stem.split_once('.') {
             Some((id, version)) => is_valid_stored_id(id) && valid_password_version(version),
-            None => is_valid_stored_id(stem),
+            None => is_valid_stored_id(stem) && superseded.contains(stem),
         };
-        if managed && !referenced.contains(&file.path()) {
+        if managed && !referenced.contains(&fs::canonicalize(file.path())?) {
             fs::remove_file(file.path())?;
             #[cfg(test)]
             crash_tests::crash_at("password_removed");
@@ -586,9 +611,9 @@ mod tests {
         let db = neo_db::Db::open_sqlite(&dir.path().join("db.sqlite3"))
             .await
             .unwrap();
-        cleanup_passwords(dir.path(), &db).await.unwrap();
+        cleanup_passwords(dir.path(), &db, &[]).await.unwrap();
         assert!(!path.exists());
-        cleanup_passwords(dir.path(), &db).await.unwrap();
+        cleanup_passwords(dir.path(), &db, &[]).await.unwrap();
         db.close().await;
     }
 }

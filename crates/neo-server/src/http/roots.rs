@@ -108,7 +108,7 @@ pub async fn update(
     // it to the old one.
     let saved = {
         let _changes = state.lock_root_changes().await;
-        let (_, current) =
+        let (current, _) =
             check_editable(&state, &id, &settings, password.is_some(), &data_dir).await?;
         if password.is_none() && remote_name(&settings).is_some() {
             Some(read_password(&current, &data_dir, &id)?)
@@ -130,7 +130,7 @@ pub async fn update(
     let status = run_to_end(async move {
         let _pending = pending;
         let _changes = changes;
-        let (current, current_settings) =
+        let (current_settings, location_changed) =
             check_editable(&state, &id, &settings, password.is_some(), &data_dir).await?;
         if let Some(saved) = &saved
             && read_password(&current_settings, &data_dir, &id)? != *saved
@@ -139,7 +139,6 @@ pub async fn update(
                 "保存的密码刚被另一个修改换掉了，请重新提交",
             ));
         }
-        let location_changed = !same_location(&current.settings, &settings);
         // A scan of the old location would write its listing digests back
         // after they are dropped, and the next scan would trust them.
         if location_changed
@@ -238,15 +237,15 @@ fn check_free(state: &AppState, id: &str) -> Result<(), HttpError> {
     Ok(())
 }
 
-/// The root an edit applies to, or the error that stops the edit.
+/// The committed settings and whether the edit changes either saved or live location.
 async fn check_editable(
     state: &AppState,
     id: &str,
     settings: &StoredSettings,
     has_password: bool,
     data_dir: &Path,
-) -> Result<(RootEntry, StoredSettings), HttpError> {
-    stored_root(state, id)?;
+) -> Result<(StoredSettings, bool), HttpError> {
+    let registered = stored_root(state, id)?;
     let stored = db::roots::list_stored(state.db())
         .await?
         .into_iter()
@@ -274,7 +273,11 @@ async fn check_editable(
             "{remote} 媒体库需要密码，换了服务器地址时要重新填写"
         )));
     }
-    Ok((current, saved))
+    // A lost acknowledgement leaves the old client available to scans.
+    // Its digests need invalidation even if this request matches the database.
+    let location_changed = !same_location(&current.settings, settings)
+        || !same_location(&registered.settings, settings);
+    Ok((saved, location_changed))
 }
 
 fn read_password(
@@ -289,7 +292,9 @@ fn read_password(
 }
 
 async fn cleanup_passwords(state: &AppState, data_dir: &Path) {
-    if let Err(e) = library::cleanup_passwords(data_dir, state.db()).await {
+    if let Err(e) =
+        library::cleanup_passwords(data_dir, state.db(), &state.0.configured_passwords).await
+    {
         tracing::warn!("cannot clean up unreferenced password files: {e:#}");
     }
 }

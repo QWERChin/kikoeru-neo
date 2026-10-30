@@ -100,7 +100,7 @@ async fn a_rejected_commit_keeps_the_old_credentials_and_reclaims_only_orphans()
     let roots = list(&app, &token).await;
     assert_eq!(roots[2]["settings"]["url"], "http://127.0.0.1:9/");
     let _secrets = neo_server::roots::lock_secrets(app.data_dir()).unwrap();
-    neo_server::roots::cleanup_passwords(app.data_dir(), &app.db)
+    neo_server::roots::cleanup_passwords(app.data_dir(), &app.db, &[])
         .await
         .unwrap();
     assert!(old.is_file());
@@ -195,7 +195,7 @@ async fn cleanup_keeps_old_files_until_the_reference_change_is_durable() {
     );
     reader.rollback().await.unwrap();
     let _secrets = neo_server::roots::lock_secrets(app.data_dir()).unwrap();
-    neo_server::roots::cleanup_passwords(app.data_dir(), &app.db)
+    neo_server::roots::cleanup_passwords(app.data_dir(), &app.db, &[])
         .await
         .unwrap();
     assert!(!old.exists());

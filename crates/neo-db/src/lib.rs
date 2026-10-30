@@ -324,6 +324,7 @@ pub mod roots {
         write fn sync(roots: &[(&str, &str)]) -> sqlx::Result<()>;
         read fn with_works_outside(known: &[&str]) -> sqlx::Result<Vec<(String, i64)>>;
         read fn list_stored() -> sqlx::Result<Vec<StoredRoot>>;
+        write fn list_stored_for_cleanup() -> sqlx::Result<Vec<StoredRoot>>;
         write fn insert_stored(root: &StoredRoot, now: i64) -> sqlx::Result<bool>;
         write fn update_stored(root: &StoredRoot, location_changed: bool, now: i64) -> sqlx::Result<bool>;
         tx fn remove_stored(id: &str, now: i64) -> sqlx::Result<Option<Vec<i64>>>;

@@ -197,3 +197,93 @@ async fn a_wrong_password_is_refused_unless_the_check_is_skipped() {
         .await;
     assert_error(status, &body, StatusCode::BAD_REQUEST, "invalid_request");
 }
+
+async fn lost_update_acknowledgement() -> (App, String, fake::Server, fake::Server, Value) {
+    let app = app().await;
+    app.user("admin", true).await;
+    let token = app.login("admin").await;
+    let a = fake::start().await;
+    let b = fake::start().await;
+    for (server, track) in [(&a, "a.mp3"), (&b, "b.mp3")] {
+        server.fake.dir("/voice");
+        server.fake.dir("/voice/RJ000001");
+        server.fake.dir("/voice/RJ000001/disc");
+        server
+            .fake
+            .file(&format!("/voice/RJ000001/disc/{track}"), b"synthetic audio");
+    }
+    let (status, body) = app
+        .send(
+            Req::post("/api/admin/roots")
+                .token(&token)
+                .json(webdav(&a, fake::PASSWORD)),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let retry = webdav(&b, fake::PASSWORD);
+    let mut committed: neo_server::roots::StoredSettings =
+        serde_json::from_value(retry["settings"].clone()).unwrap();
+    committed.set_password_version(Some(
+        neo_server::roots::write_password(app.data_dir(), "nas", fake::PASSWORD).unwrap(),
+    ));
+    // COMMIT succeeded but its acknowledgement was lost. Only the database
+    // moves to B; subsequent scans still use the registered A client.
+    assert!(
+        neo_db::roots::update_stored(
+            &app.db,
+            &committed.to_stored("nas", "NAS"),
+            true,
+            neo_db::now_ms(),
+        )
+        .await
+        .unwrap()
+    );
+    (app, token, a, b, retry)
+}
+
+#[tokio::test]
+async fn retry_after_lost_acknowledgement_invalidates_the_old_clients_digest() {
+    let (app, token, _a, _b, retry) = lost_update_acknowledgement().await;
+    scan(&app, &token).await;
+    let before: Vec<(String, bool)> = neo_db::testing::rows(
+        &app.db,
+        "SELECT display_path, missing_at IS NOT NULL FROM tracks ORDER BY display_path",
+    )
+    .await;
+    assert_eq!(before, vec![("disc/a.mp3".into(), false)]);
+    let (status, body) = app
+        .send(Req::put("/api/admin/roots/nas").token(&token).json(retry))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    scan(&app, &token).await;
+    let after: Vec<(String, bool)> = neo_db::testing::rows(
+        &app.db,
+        "SELECT display_path, missing_at IS NOT NULL FROM tracks ORDER BY display_path",
+    )
+    .await;
+    assert_eq!(
+        after,
+        vec![("disc/a.mp3".into(), true), ("disc/b.mp3".into(), false)]
+    );
+    app.state.scheduler().shutdown(Duration::from_secs(5)).await;
+}
+
+#[tokio::test]
+async fn retry_after_lost_acknowledgement_refuses_an_active_old_client_scan() {
+    let (app, token, _a, _b, retry) = lost_update_acknowledgement().await;
+    neo_db::tasks::enqueue(
+        &app.db,
+        "scan",
+        Some("scan:nas"),
+        r#"{"root":"nas"}"#,
+        None,
+        0,
+    )
+    .await
+    .unwrap();
+    let (status, body) = app
+        .send(Req::put("/api/admin/roots/nas").token(&token).json(retry))
+        .await;
+    assert_error(status, &body, StatusCode::CONFLICT, "scan_running");
+    app.state.scheduler().shutdown(Duration::from_secs(5)).await;
+}
