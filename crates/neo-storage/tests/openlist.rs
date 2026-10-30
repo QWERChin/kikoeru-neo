@@ -72,6 +72,35 @@ async fn a_missing_base_path_is_unavailable_never_empty_or_missing() {
 }
 
 #[tokio::test]
+async fn an_empty_root_is_unavailable_for_list_and_walk() {
+    for base in ["/media/voice", "/"] {
+        let server = start().await;
+        server.fake.put(base, vec![]);
+        let storage = OpenListStorage::new(server.client(), base).unwrap();
+        let expected = StorageError::Unavailable(format!(
+            "{base} is empty; is the OpenList base path correct?"
+        ));
+        assert_eq!(storage.list(&RawPath::root()).await, Err(expected.clone()));
+        assert_eq!(storage.walk(&RawPath::root()).await, Err(expected));
+    }
+}
+
+#[tokio::test]
+async fn an_empty_subdirectory_is_normal_for_list_and_walk() {
+    let server = start().await;
+    server.fake.put("/media", vec![dir("empty")]);
+    server.fake.put("/media/empty", vec![]);
+    let storage = OpenListStorage::new(server.client(), "/media").unwrap();
+    assert!(storage.list(&raw("empty")).await.unwrap().is_empty());
+    assert!(storage.walk(&raw("empty")).await.unwrap().is_empty());
+    let entries = storage.list(&RawPath::root()).await.unwrap();
+    assert_eq!(entries.len(), 1);
+    let tree = storage.walk(&RawPath::root()).await.unwrap();
+    assert_eq!(tree.len(), 1);
+    assert_eq!(tree[0].path, raw("empty"));
+}
+
+#[tokio::test]
 async fn a_missing_work_directory_is_not_found() {
     let (_server, storage) = library().await;
     assert_eq!(

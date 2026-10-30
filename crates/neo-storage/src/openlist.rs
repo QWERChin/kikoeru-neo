@@ -81,6 +81,13 @@ impl OpenListStorage {
         StorageError::Unavailable(format!("{} is not on OpenList", self.base))
     }
 
+    fn empty_root(&self) -> StorageError {
+        StorageError::Unavailable(format!(
+            "{} is empty; is the OpenList base path correct?",
+            self.base
+        ))
+    }
+
     async fn remote(&self, rel: &RawPath) -> Result<RemoteFile, StorageError> {
         let entry = self.stat(rel).await?;
         if entry.kind != EntryKind::File {
@@ -130,6 +137,9 @@ impl Storage for OpenListStorage {
             Ok(listing) => listing,
             Err(e) => return Err(self.error(dir, &e).await),
         };
+        if dir.is_root() && listing.entries.is_empty() {
+            return Err(self.empty_root());
+        }
         Ok(listing.entries.iter().map(convert).collect())
     }
 
@@ -163,6 +173,9 @@ impl Storage for OpenListStorage {
             Ok(top) => top,
             Err(e) => return Err(self.error(dir, &e).await),
         };
+        if dir.is_root() && top.entries.is_empty() {
+            return Err(self.empty_root());
+        }
         let found = match self.client.walk_from(top).await {
             Ok(found) => found,
             Err(e) if e.kind() == ErrorKind::NotFound => {

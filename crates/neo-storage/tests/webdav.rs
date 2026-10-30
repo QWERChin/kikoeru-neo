@@ -97,6 +97,34 @@ async fn a_missing_file_is_missing_only_while_the_base_is_there() {
 }
 
 #[tokio::test]
+async fn an_empty_root_is_unavailable_for_list_and_walk() {
+    for base in ["/media/voice", "/"] {
+        let server = fake::start().await;
+        server.fake.dir(base.trim_end_matches('/'));
+        let storage = WebDavStorage::new(server.client(), base).unwrap();
+        let expected =
+            StorageError::Unavailable(format!("{base} is empty; is the WebDAV base path correct?"));
+        assert_eq!(storage.list(&RawPath::root()).await, Err(expected.clone()));
+        assert_eq!(storage.walk(&RawPath::root()).await, Err(expected));
+    }
+}
+
+#[tokio::test]
+async fn an_empty_subdirectory_is_normal_for_list_and_walk() {
+    let server = fake::start().await;
+    server.fake.dir("/media");
+    server.fake.dir("/media/empty");
+    let storage = WebDavStorage::new(server.client(), "/media").unwrap();
+    assert!(storage.list(&raw("empty")).await.unwrap().is_empty());
+    assert!(storage.walk(&raw("empty")).await.unwrap().is_empty());
+    let entries = storage.list(&RawPath::root()).await.unwrap();
+    assert_eq!(entries.len(), 1);
+    let tree = storage.walk(&RawPath::root()).await.unwrap();
+    assert_eq!(tree.len(), 1);
+    assert_eq!(tree[0].path, raw("empty"));
+}
+
+#[tokio::test]
 async fn files_are_read_through_the_server_with_ranges() {
     let (_server, storage) = library().await;
     let Access::Remote(remote) = storage.access(&raw("RJ01/mp3/01.mp3")).await.unwrap() else {
