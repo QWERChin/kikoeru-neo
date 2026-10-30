@@ -27,6 +27,9 @@ use scan_queue::{ScanQueue, Ticket};
 /// How often a running task's progress is written to the database.
 const PROGRESS_INTERVAL: Duration = Duration::from_secs(1);
 
+/// Bounds commit resolution while an HTTP caller holds its admission guards.
+const ENQUEUE_COMMIT_WAIT: Duration = Duration::from_secs(5);
+
 /// Which concurrency limit a task waits for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lane {
@@ -293,36 +296,40 @@ impl Scheduler {
             Enqueued::QueueFull => return Err(SubmitError::QueueFull),
             Enqueued::Created(id) => id,
             Enqueued::CommitUnknown { id, xid, error } => {
-                let this = self.clone();
-                self.spawn_tracked(async move {
-                    // Until commit is confirmed, this ID might belong to
-                    // another submit. Do not register or cancel its runner.
-                    if this.wait_for_enqueue_commit(id, &xid).await {
-                        this.spawn(id, about, spec.lane, spec.timeout, job);
-                    }
-                });
-                return Err(SubmitError::Db(error));
+                // Keep the caller's admission guards held until the row is
+                // visible or this job is dropped. Never run it after an error.
+                if !self.wait_for_enqueue_commit(id, &xid, &error).await {
+                    return Err(SubmitError::Db(error));
+                }
+                id
             }
         };
         self.spawn(id, about, spec.lane, spec.timeout, job);
         Ok(Submitted { id, created: true })
     }
 
-    async fn wait_for_enqueue_commit(&self, id: i64, xid: &str) -> bool {
-        let status = self
-            .0
-            .shutdown
-            .run_until_cancelled(self.retry_task_state(id, || async {
-                let status = tasks::enqueue_commit_status(&self.0.db, xid).await?;
-                Ok((status != CommitStatus::InProgress).then_some(status))
-            }))
-            .await
-            .flatten();
+    async fn wait_for_enqueue_commit(&self, id: i64, xid: &str, error: &sqlx::Error) -> bool {
+        let status = tokio::time::timeout(
+            ENQUEUE_COMMIT_WAIT,
+            self.0
+                .shutdown
+                .run_until_cancelled(self.retry_task_state(id, || async {
+                    let status = tasks::enqueue_commit_status(&self.0.db, xid).await?;
+                    Ok(
+                        matches!(status, CommitStatus::Committed | CommitStatus::Aborted)
+                            .then_some(status),
+                    )
+                })),
+        )
+        .await
+        .ok()
+        .flatten()
+        .flatten();
         match status {
             Some(CommitStatus::Committed) => true,
             Some(CommitStatus::Aborted) => false,
             _ => {
-                tracing::warn!(task = id, %xid, ?status,
+                tracing::warn!(task = id, %xid, %error,
                     "enqueue commit unresolved; leaving any queued row to startup recovery");
                 false
             }
