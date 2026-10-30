@@ -120,9 +120,10 @@ pub async fn mark_location_missing(
     now: i64,
 ) -> sqlx::Result<()> {
     sqlx::query!(
-        // Its tracks are marked missing below, so the next scan that finds
-        // it again must walk it rather than trust the stored digest.
-        "UPDATE work_locations SET missing_at = $1, listing_hash = NULL WHERE id = $2",
+        // Its tracks are marked missing below, so recovery must walk it
+        // again and defer progress matching until the listing is complete.
+        "UPDATE work_locations SET missing_at = $1, listing_hash = NULL, listed_at = NULL
+         WHERE id = $2",
         now,
         location_id
     )

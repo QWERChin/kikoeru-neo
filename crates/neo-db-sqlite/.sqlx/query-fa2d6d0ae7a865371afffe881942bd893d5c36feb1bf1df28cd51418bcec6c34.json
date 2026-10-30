@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE work_locations SET missing_at = $1, listing_hash = NULL, listed_at = NULL\n         WHERE root_id = $2 AND missing_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "fa2d6d0ae7a865371afffe881942bd893d5c36feb1bf1df28cd51418bcec6c34"
+}

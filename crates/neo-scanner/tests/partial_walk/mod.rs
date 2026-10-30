@@ -1,7 +1,7 @@
 //! Partial listings sync readable siblings without trusting failed subtrees.
 
 use super::{NOW, fake_openlist as openlist, fake_webdav as webdav, set_mode};
-use neo_db::{Db, media, roots, scan, testing};
+use neo_db::{Db, legacy_state, media, roots, scan, testing};
 use neo_scanner::{NoObserver, Observer, Root, scan_root};
 use neo_storage::{LocalStorage, OpenListStorage, Storage, WebDavStorage};
 use std::{fs, sync::Mutex};
@@ -13,6 +13,175 @@ impl Observer for Probes {
     fn probe(&self, ids: &[i64]) {
         self.0.lock().unwrap().extend_from_slice(ids);
     }
+}
+
+#[tokio::test]
+async fn a_restored_missing_location_defers_cross_library_progress_until_fully_listed() {
+    restored_location_defers_progress(MissingCause::Scan).await;
+}
+
+#[tokio::test]
+async fn a_readded_root_defers_cross_library_progress_until_fully_listed() {
+    restored_location_defers_progress(MissingCause::RootRemoval).await;
+}
+
+enum MissingCause {
+    Scan,
+    RootRemoval,
+}
+
+async fn restored_location_defers_progress(cause: MissingCause) {
+    let server = webdav::start().await;
+    server.fake.dir("/a");
+    server.fake.dir("/a/RJ123456");
+    server.fake.file("/a/RJ123456/01.mp3", &[0; 10]);
+    // Keep discovery nonempty when the target work disappears.
+    server.fake.dir("/a/RJ654321");
+    let test_db = testing::open().await;
+    let db = &test_db.db;
+    roots::sync(db, &[("a", "Synthetic A"), ("b", "Synthetic B")])
+        .await
+        .unwrap();
+    let stored_a = roots::StoredRoot {
+        id: "a".into(),
+        display_name: "Synthetic A".into(),
+        kind: "webdav".into(),
+        settings: serde_json::json!({"url": server.url(), "base_path": "/a"}).to_string(),
+    };
+    assert!(roots::insert_stored(db, &stored_a, NOW).await.unwrap());
+    let storage_a = WebDavStorage::new(server.client(), "/a").unwrap();
+    let root_a = Root {
+        id: "a",
+        storage: &storage_a,
+        probe_after_scan: false,
+        skip_unchanged: true,
+    };
+    let order = ["a".to_owned(), "b".to_owned()];
+    let first = scan_root(db, &root_a, &order, &NoObserver, NOW)
+        .await
+        .unwrap();
+    assert_eq!(
+        (first.works_new, first.tracks_new, first.works_failed),
+        (2, 1, 0)
+    );
+    let work_id: i64 = testing::value(db, "SELECT id FROM works WHERE code = 'RJ123456'").await;
+
+    match cause {
+        MissingCause::Scan => {
+            server.fake.remove("/a/RJ123456");
+            let missing = scan_root(db, &root_a, &order, &NoObserver, NOW + 1)
+                .await
+                .unwrap();
+            assert_eq!((missing.locations_missing, missing.works_missing), (1, 1));
+        }
+        MissingCause::RootRemoval => {
+            let mut tx = db.begin().await.unwrap();
+            let affected = roots::remove_stored(&mut tx, "a", NOW + 1)
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(affected.contains(&work_id));
+            tx.commit().await.unwrap();
+        }
+    }
+
+    testing::exec(
+        db,
+        "INSERT INTO users (name, is_admin, created_at) VALUES ('synthetic', FALSE, 0)",
+    )
+    .await;
+    let mut tx = db.begin().await.unwrap();
+    legacy_state::put(
+        &mut tx,
+        &legacy_state::State {
+            user_id: 1,
+            code: "RJ123456".into(),
+            favorite_at: None,
+            review: None,
+            progress: Some(legacy_state::Progress {
+                updated_at: NOW + 2,
+                position_ms: 1_000,
+                finished_at: None,
+                pending: Some((
+                    r#"{"item":{"title":"01.mp3","subtitle":""},"seconds":1}"#.into(),
+                    None,
+                    "pending".into(),
+                )),
+            }),
+        },
+    )
+    .await
+    .unwrap();
+    let claimed = legacy_state::claim(&mut tx, work_id, "RJ123456")
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(claimed.progress, 1);
+    assert_import_binding(db, "pending").await;
+
+    if matches!(cause, MissingCause::RootRemoval) {
+        assert!(roots::insert_stored(db, &stored_a, NOW + 3).await.unwrap());
+    }
+    server.fake.dir("/a/RJ123456");
+    server.fake.file("/a/RJ123456/01.mp3", &[0; 10]);
+    server.fake.fault(
+        "/a/RJ123456",
+        webdav::Fault::Status {
+            status: 403,
+            times: 1,
+            retry_after: None,
+        },
+    );
+    let failed = scan_root(db, &root_a, &order, &NoObserver, NOW + 3)
+        .await
+        .unwrap();
+    let restored_locations = match cause {
+        MissingCause::Scan => 1,
+        MissingCause::RootRemoval => 2,
+    };
+    assert_eq!(failed.locations_restored, restored_locations);
+    assert_eq!(failed.works_failed, 1);
+    assert_eq!(failed.tracks_restored, 0);
+    assert_import_binding(db, "pending").await;
+
+    server.fake.dir("/b");
+    server.fake.dir("/b/RJ123456");
+    server.fake.file("/b/RJ123456/01.mp3", &[0; 20]);
+    let storage_b = WebDavStorage::new(server.client(), "/b").unwrap();
+    let scanned_b = scan_root(
+        db,
+        &Root {
+            id: "b",
+            storage: &storage_b,
+            probe_after_scan: false,
+            skip_unchanged: true,
+        },
+        &order,
+        &NoObserver,
+        NOW + 4,
+    )
+    .await
+    .unwrap();
+    assert_eq!((scanned_b.tracks_new, scanned_b.works_failed), (1, 0));
+    assert_import_binding(db, "pending").await;
+    assert_eq!(scanned_b.pending_deferred, 1);
+
+    let recovered = scan_root(db, &root_a, &order, &NoObserver, NOW + 5)
+        .await
+        .unwrap();
+    assert_eq!((recovered.tracks_restored, recovered.works_failed), (1, 0));
+    assert_import_binding(db, "ambiguous").await;
+    assert_eq!(recovered.pending_ambiguous, 1);
+}
+
+async fn assert_import_binding(db: &Db, state: &str) {
+    let rows: Vec<(String, Option<i64>)> = testing::rows(
+        db,
+        "SELECT p.state, g.track_id FROM import_pending p
+         JOIN play_progress g USING (user_id, work_id)",
+    )
+    .await;
+    assert_eq!(rows, [(state.to_owned(), None)]);
 }
 
 #[tokio::test]

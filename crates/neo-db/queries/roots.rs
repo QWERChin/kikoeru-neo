@@ -223,10 +223,10 @@ pub async fn remove_stored(
     )
     .execute(&mut **tx)
     .await?;
-    // The digest goes too, so a root re-added later is walked in full and
-    // its tracks restored.
+    // A re-added root must restore its tracks with a full walk before
+    // another root's scan can match imported progress against them.
     sqlx::query!(
-        "UPDATE work_locations SET missing_at = $1, listing_hash = NULL
+        "UPDATE work_locations SET missing_at = $1, listing_hash = NULL, listed_at = NULL
          WHERE root_id = $2 AND missing_at IS NULL",
         now,
         id
