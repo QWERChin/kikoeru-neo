@@ -1680,6 +1680,7 @@ dependencies = [
  "neo-db",
  "neo-media",
  "neo-scanner",
+ "neo-server",
  "neo-storage",
  "notify",
  "openlist-client",

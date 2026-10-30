@@ -389,7 +389,7 @@
           nativeCheckInputs = [ pkgs.ffmpeg-headless ];
           preBuild = copyWeb pkgs;
         });
-      # Run the selected database, scanner, schema-parity and copy targets
+      # Run the selected database, scheduler, scanner, schema-parity and copy targets
       # on PostgreSQL, not the entire workspace suite. The server lives
       # only in the build sandbox and is stopped after the tests.
       rustTestPg = pkgs:
@@ -404,7 +404,7 @@
             export KIKOERU_TEST_BACKEND=postgres
             export KIKOERU_TEST_PG="postgres:///test_db?host=$NIX_BUILD_TOP/run/postgresql&user=test_user"
           '';
-          cargoTestExtraArgs = "--test db --test legacy_state --test pg_schema --test db_copy --test scan --test metadata --test password_cleanup -- --include-ignored";
+          cargoTestExtraArgs = "--test db --test legacy_state --test pg_schema --test db_copy --test tasks --test scan --test metadata --test password_cleanup -- --include-ignored";
           preBuild = copyWeb pkgs;
         });
       # A standalone musl binary; administrators supply ffmpeg separately.

@@ -5,7 +5,10 @@ use std::time::Duration;
 use axum::http::StatusCode;
 use common::{Req, app};
 use futures_util::FutureExt;
-use neo_db::{Db, tasks::TaskRow};
+use neo_db::{
+    Db,
+    tasks::{self, TaskRow},
+};
 use neo_server::tasks::{Job, JobError, Lane, Scheduler, SubmitError, TaskSpec};
 use serde_json::json;
 use tokio::sync::oneshot;
@@ -69,6 +72,110 @@ async fn sqlite_db() -> (tempfile::TempDir, Db) {
         .await
         .unwrap();
     (dir, db)
+}
+
+#[test]
+fn a_lost_enqueue_commit_ack_does_not_strand_the_task() {
+    with_enqueue_commit_outcome(true, lost_enqueue_ack(Some("scan:synthetic")));
+}
+
+#[test]
+fn a_lost_enqueue_commit_ack_without_a_dedupe_key_still_runs() {
+    with_enqueue_commit_outcome(true, lost_enqueue_ack(None));
+}
+
+fn with_enqueue_commit_outcome(commit: bool, test: impl std::future::Future<Output = ()>) {
+    if !neo_db::testing::on_postgres() {
+        return;
+    }
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    // Poll the current-thread runtime inside the hook's scope so submit's
+    // spawned operation sees it too. Scoping only submit would miss it.
+    tasks::ENQUEUE_COMMIT_OUTCOME.sync_scope(commit, || runtime.block_on(test));
+}
+
+fn enqueue_spec(key: Option<&str>) -> TaskSpec {
+    TaskSpec {
+        kind: "scan",
+        dedupe_key: key.map(str::to_owned),
+        payload: json!({"root": "synthetic"}),
+        lane: Lane::Scan,
+        timeout: None,
+        queue_limit: None,
+    }
+}
+
+async fn lost_enqueue_ack(key: Option<&str>) {
+    let test = neo_db::testing::open().await;
+    let scheduler = Scheduler::new(test.db.clone(), 1, 4);
+    let cleanup = scheduler.try_scan_slot().unwrap();
+    let (ran, started) = oneshot::channel();
+    let job: Job = Box::new(|_| {
+        async move {
+            ran.send(()).unwrap();
+            Ok(Some(json!({"original": true})))
+        }
+        .boxed()
+    });
+    let error = scheduler.submit(enqueue_spec(key), job).await.unwrap_err();
+    assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
+    let rows = tasks::list(&test.db, None, None, 10, 0).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    let id = rows[0].id;
+    assert_eq!(rows[0].state, "queued");
+    if key.is_some() {
+        let duplicate = scheduler
+            .submit(
+                enqueue_spec(key),
+                Box::new(|_| async { panic!("the duplicate job must not run") }.boxed()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(duplicate.id, id);
+        assert!(!duplicate.created);
+    }
+    drop(cleanup);
+    tokio::time::timeout(Duration::from_secs(60), started)
+        .await
+        .expect("the committed task must run without a restart")
+        .expect("the original job must not be dropped");
+    let done = wait_for(&scheduler, id, "done").await;
+    scheduler.shutdown(Duration::from_secs(5)).await;
+    assert_eq!(done.state, "done");
+    assert_eq!(done.result.as_deref(), Some("{\"original\":true}"));
+    assert_eq!(tasks::count(&test.db, None, None).await.unwrap(), 1);
+}
+
+#[test]
+fn an_uncommitted_enqueue_never_runs_its_job() {
+    with_enqueue_commit_outcome(false, uncommitted_enqueue());
+}
+
+async fn uncommitted_enqueue() {
+    let test = neo_db::testing::open().await;
+    let scheduler = Scheduler::new(test.db.clone(), 1, 4);
+    let (ran, started) = oneshot::channel();
+    let job: Job = Box::new(|_| {
+        async move {
+            ran.send(()).unwrap();
+            Ok(None)
+        }
+        .boxed()
+    });
+    let error = scheduler.submit(enqueue_spec(None), job).await.unwrap_err();
+    assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
+    assert!(
+        tokio::time::timeout(Duration::from_secs(60), started)
+            .await
+            .expect("the rolled-back job must be dropped")
+            .is_err(),
+        "a rolled-back task must not run"
+    );
+    scheduler.shutdown(Duration::from_secs(5)).await;
+    assert_eq!(tasks::count(&test.db, None, None).await.unwrap(), 0);
 }
 
 #[tokio::test]

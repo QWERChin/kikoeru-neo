@@ -141,7 +141,7 @@ nix build .#book --no-link
 
 `docker` 和 `nixos` 检查会启动 NixOS 虚拟机，需要 `/dev/kvm`，容器里通常没有。没有 Nix 时，跑完针对性检查后由 CI 在拉取请求上运行完整检查。`nix flake check` 构建当前系统定义的检查。以下检查只在 `x86_64-linux` 上定义：`rust-lint`、`rust-test`、`rust-test-pg`、`e2e`、`e2e-mock`、`windows`、`desktop`、`desktop-windows`、`docker` 和 `nixos`。`neo-typegen` 包的测试阶段也只在 x86_64 上运行。ARM64 检查通过不表示具备同等测试覆盖，GitHub CI 运行 x86_64 检查集合。
 
-`rust-test` 在嵌入前端的条件下运行根 Rust workspace，桌面外壳属于单独的 workspace。`rust-test-pg` 只在 PostgreSQL 上运行选定的数据库和扫描测试，不是整个 workspace 的重跑。Windows 交叉检查只证明可编译，不证明运行行为。CI 的路径过滤会跳过纯文档改动，因此仍需在本地构建设计书。
+`rust-test` 在嵌入前端的条件下运行根 Rust workspace，桌面外壳属于单独的 workspace。`rust-test-pg` 只在 PostgreSQL 上运行选定的数据库、调度器和扫描测试，不是整个 workspace 的重跑。Windows 交叉检查只证明可编译，不证明运行行为。CI 的路径过滤会跳过纯文档改动，因此仍需在本地构建设计书。
 
 后端的针对性检查：
 

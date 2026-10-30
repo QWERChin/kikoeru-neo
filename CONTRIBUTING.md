@@ -141,7 +141,7 @@ nix build .#book --no-link
 
 The `docker` and `nixos` checks start NixOS virtual machines and need `/dev/kvm`, which a container usually does not have. Without Nix, run the focused checks and let CI run the full set on your pull request. `nix flake check` builds the checks defined for the current system. The following checks are defined only on `x86_64-linux`: `rust-lint`, `rust-test`, `rust-test-pg`, `e2e`, `e2e-mock`, `windows`, `desktop`, `desktop-windows`, `docker` and `nixos`. The `neo-typegen` package's test phase also runs only on x86_64. A successful ARM64 check does not imply equivalent test coverage. GitHub CI runs the x86_64 check set.
 
-`rust-test` runs the root Rust workspace with the embedded frontend. The desktop shell is a separate workspace. `rust-test-pg` runs selected database and scanner targets, not every workspace test against PostgreSQL. Windows cross-checks prove compilation, not runtime behavior. Documentation-only changes are skipped by CI's path filters, so build the book locally.
+`rust-test` runs the root Rust workspace with the embedded frontend. The desktop shell is a separate workspace. `rust-test-pg` runs selected database, scheduler and scanner targets, not every workspace test against PostgreSQL. Windows cross-checks prove compilation, not runtime behavior. Documentation-only changes are skipped by CI's path filters, so build the book locally.
 
 Focused checks for the backend:
 
