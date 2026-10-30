@@ -47,7 +47,7 @@ OpenList 和 WebDAV 文件由后端取回再转发给浏览器，浏览器不会
 
 存储客户端使用编译进二进制的公共 CA 根证书，不读取系统自定义 CA。给容器挂载自签 CA 文件不能让 OpenList 或 WebDAV 自动信任它。需要 HTTPS 时使用受支持的证书链，不关闭证书校验。PostgreSQL 的证书配置是另一条路径，可通过 `sslrootcert` 指定，见[配置](configuration.md)。
 
-文件配置引用 `password_file`，网页添加的密码保存为数据目录中 `secrets/roots/<id>.password`。Nix store 可被本机用户读取，不能把密码写进 NixOS `settings`。备份包含这些密码，保护范围应与数据目录相同。
+文件配置引用 `password_file`，网页添加的密码保存为数据目录中 `secrets/roots/<id>.<version>.password`。Nix store 可被本机用户读取，不能把密码写进 NixOS `settings`。备份包含这些密码，保护范围应与数据目录相同。
 
 WebDAV 和元数据客户端会使用进程环境中的 HTTP 代理设置，OpenList 客户端不使用它们。只想让元数据走代理时，用设置页的“网络代理”，它覆盖元数据客户端的环境选择，不影响 WebDAV。不要把本机代理地址误填成远程服务器可用的地址。
 

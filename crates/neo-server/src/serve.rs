@@ -94,6 +94,7 @@ impl Running {
 
     async fn stop_within(mut self, drain: Duration) -> Result<()> {
         let deadline = tokio::time::Instant::now() + drain + HTTP_CLOSE + SHUTDOWN_GRACE;
+        let root_edits = self.state.close_root_edits();
         // Tasks are told at once, not after every connection has drained,
         // which a slow client could put off until the drain timeout.
         self.scheduler.begin_shutdown();
@@ -121,7 +122,15 @@ impl Running {
         }
         let grace =
             SHUTDOWN_GRACE.min(deadline.saturating_duration_since(tokio::time::Instant::now()));
-        cleanup_within(self.scheduler, self.db, self._instance, grace, deadline).await?;
+        cleanup_within(
+            self.scheduler,
+            self.db,
+            self._instance,
+            root_edits,
+            grace,
+            deadline,
+        )
+        .await?;
         tracing::info!("stopped");
         if let Some(served) = served {
             served.context("the server task panicked")??;
@@ -134,6 +143,7 @@ async fn cleanup_within(
     scheduler: Scheduler,
     db: Db,
     instance: std::fs::File,
+    root_edits: tokio_util::task::TaskTracker,
     grace: Duration,
     deadline: tokio::time::Instant,
 ) -> Result<()> {
@@ -141,6 +151,7 @@ async fn cleanup_within(
     // their cleanup and instance lock alive if the caller stops waiting.
     let cleanup = tokio::spawn(async move {
         scheduler.shutdown(grace).await;
+        root_edits.wait().await;
         db.close().await;
         drop(instance);
     });
@@ -247,8 +258,15 @@ pub async fn start(data_dir: DataDir, config: Config, web: Option<WebSource>) ->
     {
         // Recovery may have spawned jobs before a later row failed.
         let deadline = tokio::time::Instant::now() + SHUTDOWN_GRACE + HTTP_CLOSE;
-        if let Err(cleanup_error) =
-            cleanup_within(scheduler, db, instance, SHUTDOWN_GRACE, deadline).await
+        if let Err(cleanup_error) = cleanup_within(
+            scheduler,
+            db,
+            instance,
+            state.close_root_edits(),
+            SHUTDOWN_GRACE,
+            deadline,
+        )
+        .await
         {
             tracing::warn!(%cleanup_error, "cannot finish cleanup after failed recovery");
         }
@@ -373,6 +391,12 @@ struct LoadedRoots {
 /// listed but has no storage, so one bad password file does not keep the
 /// whole library offline.
 async fn load_roots(db: &Db, data_dir: &Path, config: &Config) -> Result<LoadedRoots> {
+    let secrets_root = data_dir.to_owned();
+    let _secrets =
+        tokio::task::spawn_blocking(move || library::lock_secrets(&secrets_root)).await??;
+    if let Err(e) = library::cleanup_passwords(data_dir, db).await {
+        tracing::warn!("cannot clean up unreferenced password files: {e:#}");
+    }
     let names: Vec<_> = config
         .roots
         .iter()
@@ -687,6 +711,7 @@ mod tests {
                 url: "http://127.0.0.1:9".into(),
                 base_path: "/".into(),
                 username: "u".into(),
+                password_version: None,
                 list_concurrency: None,
                 link_rate: None,
                 auto_scan_interval: None,

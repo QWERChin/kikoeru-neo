@@ -67,4 +67,17 @@ impl Db {
         self.read.close().await;
         self.write.close().await;
     }
+
+    /// Makes committed WAL contents durable before unreferenced external
+    /// files are removed. Returns false if a reader or writer prevents a
+    /// complete checkpoint, so the caller must leave those files intact.
+    ///
+    /// # Errors
+    /// Any database or checkpoint I/O error.
+    pub async fn checkpoint(&self) -> sqlx::Result<bool> {
+        let (busy, log, done): (i64, i64, i64) = sqlx::query_as("PRAGMA wal_checkpoint(FULL)")
+            .fetch_one(&self.write)
+            .await?;
+        Ok(busy == 0 && log == done)
+    }
 }

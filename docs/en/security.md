@@ -47,7 +47,7 @@ The backend fetches OpenList and WebDAV media and forwards it to the browser. It
 
 Storage clients use public CA roots compiled into the binary, not custom system CA stores. Mounting a self-signed CA file in a container does not automatically make OpenList or WebDAV trust it. Use a supported certificate chain for HTTPS; do not disable certificate verification. PostgreSQL has a separate certificate configuration path through `sslrootcert`, described in [Configuration](configuration.md#change-databases).
 
-File-managed libraries reference `password_file`. Interface-managed passwords are stored in `secrets/roots/<id>.password` under the data directory. The Nix store is readable by local users, so passwords must not be placed in NixOS `settings`. Backups contain these passwords and need the same access protection.
+File-managed libraries reference `password_file`. Interface-managed passwords are stored in `secrets/roots/<id>.<version>.password` under the data directory. The Nix store is readable by local users, so passwords must not be placed in NixOS `settings`. Backups contain these passwords and need the same access protection.
 
 WebDAV and metadata clients can use HTTP proxy settings from the process environment; the OpenList client does not. For metadata-only proxying, use Network proxy (“网络代理”) in Settings. It overrides the metadata client's environment-based choice without changing WebDAV. The address must be reachable from the backend, not merely from the browser's machine.
 

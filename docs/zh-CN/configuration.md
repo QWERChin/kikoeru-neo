@@ -70,7 +70,7 @@ asmr.one 默认按 `https://api.asmr.one/`、`https://api.asmr-200.com/`、`http
 
 ## 网页设置和文件配置
 
-在网页添加的媒体库保存在数据库中，修改立即生效，不改写 TOML。远端密码写入 `secrets/roots/<id>.password`。文件配置的媒体库在网页中只读。
+在网页添加的媒体库保存在数据库中，修改立即生效，不改写 TOML。远端密码写入 `secrets/roots/<id>.<version>.password`。文件配置的媒体库在网页中只读。
 
 管理员设置页的“网络代理”也保存在数据库中，修改立即影响元数据请求，不是 `config.toml` 的参数。它用于 DLsite、asmr.one 和 hvdb，不代理 OpenList 或 WebDAV 媒体文件。代理地址从运行后端的机器访问，桌面本机模式才是个人电脑。凭据和传输限制见[安全与网络](security.md)。
 
