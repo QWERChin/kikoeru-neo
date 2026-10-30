@@ -23,6 +23,8 @@ async fn occupied_port_leaves_scans_queued_until_a_successful_start() {
     };
     let data_dir = DataDir::prepare(&data_root).unwrap();
     let media = fake::start().await;
+    // An empty remote root makes the scan fail as unavailable.
+    media.fake.dir("/RJ01000001");
     let password = dir.path().join("webdav-password");
     std::fs::write(&password, fake::PASSWORD).unwrap();
     let occupied = TcpListener::bind("127.0.0.1:0").await.unwrap();
