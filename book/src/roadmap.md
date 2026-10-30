@@ -53,7 +53,7 @@
 - [x] 发布工作流已改为确认标签属于 `main` 历史，并复用最近的主线 CI 成功结果，仅允许其后存在符合 CI 忽略规则的文件差异，不再在一个 runner 上重新构建全部检查。门禁通过临时 Git 仓库和假 API 测试验证，但 `v0.1.0` 和 `v0.1.1` 首次发布的 e2e 失败原因仍未确认。
 - [x] 分配器比较：glibc、jemalloc、mimalloc 和 musl mallocng 在同一合成负载下各测一小时，静态包据此改用 jemalloc，glibc 构建保留 `MALLOC_ARENA_MAX=2`。见[测试与验证](testing.md#分配器测量)。
 - [ ] glibc 默认 malloc 在远端播放下每小时约 12 MiB 的 RSS 增长没有在一小时合成浸泡中复现。状态：要重新证明 `MALLOC_ARENA_MAX=2` 的必要性，需要更长的运行或更接近实际的远端负载。
-- [ ] `scripts/soak.py` 对没有时长的强制转码轨道仍按源扩展名估算读取码率，不能准确模拟 AAC 输出。状态：下次使用前按输出码率修正。
+- [x] `scripts/soak.py` 对没有时长的强制转码轨道已按服务端 AAC 输出的 192 kbit/s 控制读取节奏。
 - [ ] 假数据浏览器测试缺少可比较的资源测量。状态：待用 `scripts/check-memory.py e2e-mock` 在可控负载下记录峰值和用时。
 - [ ] PostgreSQL 测试在高负载下的连接池超时缺少稳定复现。状态：待在合成环境保留连接池等待与资源压力证据，不能直接归因于产品逻辑。
 - [ ] `neo-scanner` 的 `hvdb_requests_are_spaced_and_follow_no_redirect` 按假服务器收到请求的时间检查 200 毫秒间隔，高负载下到达时间抖动可能低于断言的 150 毫秒下限，一次 `rust-test-pg` 中测到 121 毫秒，重跑通过。状态：待改为不受调度抖动影响的测量方式，不能删掉间隔检查。
