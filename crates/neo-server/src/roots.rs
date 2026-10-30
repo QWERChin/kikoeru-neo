@@ -3,6 +3,7 @@
 //! one gets.
 
 use std::{
+    collections::HashSet,
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -42,6 +43,8 @@ pub enum StoredSettings {
         url: String,
         base_path: String,
         username: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        password_version: Option<String>,
         list_concurrency: Option<u32>,
         link_rate: Option<f64>,
         #[serde(default)]
@@ -51,6 +54,8 @@ pub enum StoredSettings {
         url: String,
         base_path: String,
         username: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        password_version: Option<String>,
         list_concurrency: Option<u32>,
         #[serde(default)]
         auto_scan_interval: Option<u32>,
@@ -67,6 +72,49 @@ pub struct ScanPolicy {
 }
 
 impl StoredSettings {
+    pub fn password_version(&self) -> Option<&str> {
+        match self {
+            Self::Local { .. } => None,
+            Self::OpenList {
+                password_version, ..
+            }
+            | Self::WebDav {
+                password_version, ..
+            } => password_version.as_deref(),
+        }
+    }
+
+    pub fn set_password_version(&mut self, version: Option<String>) {
+        match self {
+            Self::Local { .. } => {}
+            Self::OpenList {
+                password_version, ..
+            }
+            | Self::WebDav {
+                password_version, ..
+            } => {
+                *password_version = version;
+            }
+        }
+    }
+
+    /// Rows written before versioned secrets use the original filename.
+    /// A version is a nonce, never a path supplied by the stored JSON.
+    pub fn password_path(&self, data_dir: &Path, id: &str) -> Result<PathBuf> {
+        match self.password_version() {
+            None => Ok(password_path(data_dir, id)),
+            Some(version) => {
+                anyhow::ensure!(
+                    valid_password_version(version),
+                    "invalid password version for root {id}"
+                );
+                Ok(data_dir
+                    .join("secrets/roots")
+                    .join(format!("{id}.{version}.password")))
+            }
+        }
+    }
+
     pub fn kind(&self) -> RootKind {
         match self {
             Self::Local { .. } => RootKind::Local,
@@ -153,33 +201,57 @@ impl StoredSettings {
     }
 }
 
-/// Where a stored OpenList or WebDAV root's password lives.
+/// The legacy, unversioned password path. New edits never overwrite it.
 pub fn password_path(data_dir: &Path, id: &str) -> PathBuf {
     data_dir
         .join("secrets/roots")
         .join(format!("{id}.password"))
 }
 
-/// Writes a stored root's password, readable only by the service, through
-/// a temporary file so a reader never sees half of it.
-pub fn write_password(data_dir: &Path, id: &str, password: &str) -> Result<()> {
-    let path = password_path(data_dir, id);
+/// Writes an immutable password file before its version is committed with
+/// the address. An interrupted write leaves only an unreferenced file.
+pub fn write_password(data_dir: &Path, id: &str, password: &str) -> Result<String> {
+    let mut nonce = [0u8; 16];
+    getrandom::fill(&mut nonce).map_err(|e| anyhow!("no system randomness: {e}"))?;
+    let version = format!("{:032x}", u128::from_le_bytes(nonce));
+    let path = data_dir
+        .join("secrets/roots")
+        .join(format!("{id}.{version}.password"));
     let dir = path.parent().expect("the password path has a parent");
     crate::private::dir()
         .recursive(true)
         .create(dir)
         .with_context(|| format!("cannot create {}", dir.display()))?;
-    let tmp = dir.join(format!(".{id}.password.tmp"));
     let mut file = fs::OpenOptions::new()
         .write(true)
-        .create(true)
-        .truncate(true)
+        .create_new(true)
         .private()
-        .open(&tmp)
-        .with_context(|| format!("cannot write {}", tmp.display()))?;
+        .open(&path)
+        .with_context(|| format!("cannot write {}", path.display()))?;
+    #[cfg(test)]
+    crash_tests::crash_at("password_created");
     file.write_all(password.as_bytes())?;
+    #[cfg(test)]
+    crash_tests::crash_at("password_written");
     file.sync_all()?;
-    fs::rename(&tmp, &path).with_context(|| format!("cannot write {}", path.display()))?;
+    #[cfg(test)]
+    crash_tests::crash_at("password_synced");
+    sync_directory(dir)?;
+    sync_directory(&data_dir.join("secrets"))?;
+    #[cfg(test)]
+    crash_tests::crash_at("password_published");
+    Ok(version)
+}
+
+fn valid_password_version(version: &str) -> bool {
+    version.len() == 32 && version.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+fn sync_directory(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    fs::File::open(path)?.sync_all()?;
+    #[cfg(not(unix))]
+    let _ = path;
     Ok(())
 }
 
@@ -204,13 +276,54 @@ pub fn lock_secrets(data_dir: &Path) -> Result<fs::File> {
     Ok(file)
 }
 
-/// Removes a stored root's password, if it has one.
-pub fn remove_password(data_dir: &Path, id: &str) -> Result<()> {
-    match fs::remove_file(password_path(data_dir, id)) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(e.into()),
+/// Called under `secrets/.lock`, after a commit or at startup. Read every
+/// row, including roots hidden by config.toml, before deleting anything.
+/// Failed or uncertain commits leave both versions for this same sweep.
+pub async fn cleanup_passwords(data_dir: &Path, db: &neo_db::Db) -> Result<()> {
+    let rows = neo_db::roots::list_stored(db).await?;
+    let mut referenced = HashSet::new();
+    for row in rows {
+        let settings: StoredSettings = serde_json::from_str(&row.settings)
+            .with_context(|| format!("cannot collect password references for root {}", row.id))?;
+        if !matches!(settings, StoredSettings::Local { .. }) {
+            referenced.insert(settings.password_path(data_dir, &row.id)?);
+        }
     }
+    // SQLite uses WAL NORMAL. Flush the committed reference changes before
+    // deleting files that a power loss could otherwise make live again.
+    if let Some(sqlite) = db.sqlite() {
+        anyhow::ensure!(
+            sqlite.checkpoint().await?,
+            "password cleanup deferred: database checkpoint is busy"
+        );
+    }
+    #[cfg(test)]
+    crash_tests::crash_at("references_synced");
+    let dir = data_dir.join("secrets/roots");
+    let files = match fs::read_dir(&dir) {
+        Ok(files) => files,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e.into()),
+    };
+    for file in files {
+        let file = file?;
+        let name = file.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let Some(stem) = name.strip_suffix(".password") else {
+            continue;
+        };
+        let managed = match stem.split_once('.') {
+            Some((id, version)) => is_valid_stored_id(id) && valid_password_version(version),
+            None => is_valid_stored_id(stem),
+        };
+        if managed && !referenced.contains(&file.path()) {
+            fs::remove_file(file.path())?;
+            #[cfg(test)]
+            crash_tests::crash_at("password_removed");
+        }
+    }
+    sync_directory(&dir)?;
+    Ok(())
 }
 
 /// A root from config.toml as the API shows it. `watch_by_default` is
@@ -238,7 +351,7 @@ pub fn stored_entry(
     let settings: StoredSettings = serde_json::from_str(&root.settings)
         .with_context(|| format!("stored settings of root {} are unreadable", root.id))?;
     let backend = settings
-        .backend(password_path(data_dir, &root.id))
+        .backend(settings.password_path(data_dir, &root.id)?)
         .with_context(|| format!("stored settings of root {} are invalid", root.id))?;
     let entry = entry(
         &root.id,
@@ -408,6 +521,9 @@ pub fn is_valid_stored_id(id: &str) -> bool {
 }
 
 #[cfg(test)]
+pub(crate) mod crash_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -427,6 +543,7 @@ mod tests {
             url: "https://openlist.test/".into(),
             base_path: "/voice".into(),
             username: "u".into(),
+            password_version: None,
             list_concurrency: None,
             link_rate: Some(2.0),
             auto_scan_interval: None,
@@ -453,19 +570,25 @@ mod tests {
     }
 
     #[cfg(unix)]
-    #[test]
-    fn passwords_are_private_files() {
+    #[tokio::test]
+    async fn passwords_are_private_files() {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
-        write_password(dir.path(), "cloud", "secret").unwrap();
-        let path = password_path(dir.path(), "cloud");
+        let version = write_password(dir.path(), "cloud", "secret").unwrap();
+        let path = dir
+            .path()
+            .join(format!("secrets/roots/cloud.{version}.password"));
         assert_eq!(fs::read_to_string(&path).unwrap(), "secret");
         assert_eq!(
             fs::metadata(&path).unwrap().permissions().mode() & 0o777,
             0o600
         );
-        remove_password(dir.path(), "cloud").unwrap();
+        let db = neo_db::Db::open_sqlite(&dir.path().join("db.sqlite3"))
+            .await
+            .unwrap();
+        cleanup_passwords(dir.path(), &db).await.unwrap();
         assert!(!path.exists());
-        remove_password(dir.path(), "cloud").unwrap();
+        cleanup_passwords(dir.path(), &db).await.unwrap();
+        db.close().await;
     }
 }

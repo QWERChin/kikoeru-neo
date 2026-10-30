@@ -32,13 +32,14 @@ pub async fn create(
     AdminUser(_): AdminUser,
     ApiJson(request): ApiJson<RootCreateRequest>,
 ) -> Result<(StatusCode, Json<RootStatus>), HttpError> {
+    let pending = state.track_root_change()?;
     if !library::is_valid_stored_id(&request.id) {
         return Err(HttpError::invalid_request(
             "id 只能用 1 到 32 个小写字母、数字、- 和 _，并以字母或数字开头",
         ));
     }
     let display_name = check_display_name(&request.display_name)?;
-    let (settings, password) = check_settings(request.settings).await?;
+    let (mut settings, password) = check_settings(request.settings).await?;
     if let Some(remote) = remote_name(&settings)
         && password.is_none()
     {
@@ -60,19 +61,20 @@ pub async fn create(
     .await?;
     let changes = state.lock_root_changes().await;
     let entry = run_to_end(async move {
+        let _pending = pending;
         let _changes = changes;
         check_free(&state, &id)?;
         let _secrets = lock_secrets(&data_dir).await?;
-        let stored = settings.to_stored(&id, &display_name);
         if let Some(password) = &password {
-            library::write_password(&data_dir, &id, password)
+            let version = library::write_password(&data_dir, &id, password)
                 .map_err(|e| HttpError::internal(format!("{e:#}")))?;
+            settings.set_password_version(Some(version));
         }
+        let stored = settings.to_stored(&id, &display_name);
         let inserted = db::roots::insert_stored(state.db(), &stored, db::now_ms()).await;
         if !matches!(inserted, Ok(true)) {
-            // A password file without settings would be picked up by a
-            // later root of the same id.
-            let _ = library::remove_password(&data_dir, &id);
+            // COMMIT errors can have an uncertain outcome. Leave the file
+            // for a later sweep to check against committed references.
             return match inserted {
                 // A stored root whose settings could not be read at
                 // startup is not in the registry but still has its row.
@@ -80,7 +82,10 @@ pub async fn create(
                 Err(e) => Err(e.into()),
             };
         }
+        #[cfg(test)]
+        library::crash_tests::crash_at("database_committed");
         let entry = publish(&state, &data_dir, &stored, storage)?;
+        cleanup_passwords(&state, &data_dir).await;
         root_status(&state, &entry).await
     })
     .await?;
@@ -93,20 +98,22 @@ pub async fn update(
     ApiPath(id): ApiPath<String>,
     ApiJson(request): ApiJson<RootUpdateRequest>,
 ) -> Result<Json<RootStatus>, HttpError> {
+    let pending = state.track_root_change()?;
     let display_name = check_display_name(&request.display_name)?;
-    let (settings, password) = check_settings(request.settings).await?;
+    let (mut settings, password) = check_settings(request.settings).await?;
     let data_dir = state.data_dir()?.root().to_owned();
-    let password_file = library::password_path(&data_dir, &id);
     // The saved password is read under the lock together with the settings
     // it belongs to. Read later, it could already be the password of a new
     // server that another edit is saving, and the check below would send
     // it to the old one.
     let saved = {
         let _changes = state.lock_root_changes().await;
-        check_editable(&state, &id, &settings, password.is_some(), &data_dir)?;
-        match &password {
-            Some(_) => None,
-            None => std::fs::read_to_string(&password_file).ok(),
+        let (_, current) =
+            check_editable(&state, &id, &settings, password.is_some(), &data_dir).await?;
+        if password.is_none() && remote_name(&settings).is_some() {
+            Some(read_password(&current, &data_dir, &id)?)
+        } else {
+            None
         }
     };
     let checked = try_settings(
@@ -121,9 +128,13 @@ pub async fn update(
     .await?;
     let changes = state.lock_root_changes().await;
     let status = run_to_end(async move {
+        let _pending = pending;
         let _changes = changes;
-        let current = check_editable(&state, &id, &settings, password.is_some(), &data_dir)?;
-        if password.is_none() && std::fs::read_to_string(&password_file).ok() != saved {
+        let (current, current_settings) =
+            check_editable(&state, &id, &settings, password.is_some(), &data_dir).await?;
+        if let Some(saved) = &saved
+            && read_password(&current_settings, &data_dir, &id)? != *saved
+        {
             return Err(HttpError::invalid_request(
                 "保存的密码刚被另一个修改换掉了，请重新提交",
             ));
@@ -139,38 +150,25 @@ pub async fn update(
             return Err(HttpError::scan_running());
         }
         let _secrets = lock_secrets(&data_dir).await?;
-        let stored = settings.to_stored(&id, &display_name);
-        // The new password goes in first and the old one is put back if
-        // the database refuses the settings, so neither is ever paired
-        // with the other's settings.
-        let previous = saved.or_else(|| std::fs::read_to_string(&password_file).ok());
+        settings.set_password_version(current_settings.password_version().map(str::to_owned));
         if let Some(password) = &password {
-            library::write_password(&data_dir, &id, password)
+            let version = library::write_password(&data_dir, &id, password)
                 .map_err(|e| HttpError::internal(format!("{e:#}")))?;
+            settings.set_password_version(Some(version));
         }
+        let stored = settings.to_stored(&id, &display_name);
         let updated =
             db::roots::update_stored(state.db(), &stored, location_changed, db::now_ms()).await;
         if !matches!(updated, Ok(true)) {
-            if password.is_some() {
-                let restored = match &previous {
-                    Some(old) => library::write_password(&data_dir, &id, old),
-                    None => library::remove_password(&data_dir, &id),
-                };
-                if let Err(e) = restored {
-                    tracing::error!(root = %id, "cannot restore the password file: {e:#}");
-                }
-            }
             return Err(match updated {
                 Ok(_) => HttpError::internal(format!("root {id} has no stored settings")),
                 Err(e) => e.into(),
             });
         }
-        if matches!(settings, StoredSettings::Local { .. })
-            && let Err(e) = library::remove_password(&data_dir, &id)
-        {
-            tracing::warn!(root = %id, "cannot remove the password file: {e:#}");
-        }
+        #[cfg(test)]
+        library::crash_tests::crash_at("database_committed");
         let entry = publish(&state, &data_dir, &stored, checked)?;
+        cleanup_passwords(&state, &data_dir).await;
         root_status(&state, &entry).await
     })
     .await?;
@@ -182,11 +180,13 @@ pub async fn remove(
     AdminUser(_): AdminUser,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode, HttpError> {
+    let pending = state.track_root_change()?;
     let data_dir = state.data_dir()?.root().to_owned();
     // Scan requests take the same lock, so none can be admitted between
     // the check below and the removal.
     let changes = state.lock_root_changes().await;
     run_to_end(async move {
+        let _pending = pending;
         let _changes = changes;
         stored_root(&state, &id)?;
         if db::tasks::active_id(state.db(), &scan::dedupe_key(&id))
@@ -210,10 +210,10 @@ pub async fn remove(
             neo_scanner::dedupe_work(&mut tx, work, &order).await?;
         }
         tx.commit().await?;
+        #[cfg(test)]
+        library::crash_tests::crash_at("database_committed");
         state.remove_root(&id);
-        if let Err(e) = library::remove_password(&data_dir, &id) {
-            tracing::warn!(root = %id, "cannot remove the password file: {e:#}");
-        }
+        cleanup_passwords(&state, &data_dir).await;
         Ok(())
     })
     .await?;
@@ -239,21 +239,34 @@ fn check_free(state: &AppState, id: &str) -> Result<(), HttpError> {
 }
 
 /// The root an edit applies to, or the error that stops the edit.
-fn check_editable(
+async fn check_editable(
     state: &AppState,
     id: &str,
     settings: &StoredSettings,
     has_password: bool,
     data_dir: &Path,
-) -> Result<RootEntry, HttpError> {
-    let current = stored_root(state, id)?;
+) -> Result<(RootEntry, StoredSettings), HttpError> {
+    stored_root(state, id)?;
+    let stored = db::roots::list_stored(state.db())
+        .await?
+        .into_iter()
+        .find(|row| row.id == id)
+        .ok_or_else(|| HttpError::internal(format!("root {id} has no stored settings")))?;
+    let saved: StoredSettings =
+        serde_json::from_str(&stored.settings).map_err(HttpError::internal)?;
+    // A failed COMMIT acknowledgement can leave the registry behind the
+    // database. Match the password to its committed address, not that cache.
+    let (current, _) = library::stored_entry(data_dir, &stored, state.watch_by_default())
+        .map_err(HttpError::internal)?;
     if let Some(url) = remote_url(settings)
         && !has_password
         && !keeps_password(
             &current,
             settings,
             url,
-            &library::password_path(data_dir, id),
+            &saved
+                .password_path(data_dir, id)
+                .map_err(HttpError::internal)?,
         )
     {
         let remote = remote_name(settings).unwrap_or_default();
@@ -261,7 +274,24 @@ fn check_editable(
             "{remote} 媒体库需要密码，换了服务器地址时要重新填写"
         )));
     }
-    Ok(current)
+    Ok((current, saved))
+}
+
+fn read_password(
+    settings: &StoredSettings,
+    data_dir: &Path,
+    id: &str,
+) -> Result<String, HttpError> {
+    let path = settings
+        .password_path(data_dir, id)
+        .map_err(HttpError::internal)?;
+    std::fs::read_to_string(path).map_err(HttpError::internal)
+}
+
+async fn cleanup_passwords(state: &AppState, data_dir: &Path) {
+    if let Err(e) = library::cleanup_passwords(data_dir, state.db()).await {
+        tracing::warn!("cannot clean up unreferenced password files: {e:#}");
+    }
 }
 
 /// Whether new settings point at the same files as the current ones.
@@ -453,6 +483,7 @@ async fn check_settings(
                 url,
                 base_path,
                 username,
+                password_version: None,
                 list_concurrency,
                 link_rate,
                 auto_scan_interval,
@@ -481,6 +512,7 @@ async fn check_settings(
                 url,
                 base_path,
                 username,
+                password_version: None,
                 list_concurrency,
                 auto_scan_interval,
             };

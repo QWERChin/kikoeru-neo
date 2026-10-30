@@ -126,6 +126,8 @@ struct Inner {
     /// registry, write the database and the password file, then swap the
     /// registry entry.
     root_changes: Arc<tokio::sync::Mutex<()>>,
+    /// Admission closes before shutdown waits for detached root edits.
+    root_edits: tokio_util::task::TaskTracker,
     /// Serializes saving the server settings with applying them.
     settings_changes: tokio::sync::Mutex<()>,
     /// What local roots that leave `watch` unset get.
@@ -172,6 +174,7 @@ impl AppState {
             data_dir: None,
             registry: std::sync::RwLock::new(Registry::default()),
             root_changes: Arc::new(tokio::sync::Mutex::new(())),
+            root_edits: tokio_util::task::TaskTracker::new(),
             settings_changes: tokio::sync::Mutex::new(()),
             watch_by_default: false,
             automation: Arc::default(),
@@ -355,6 +358,27 @@ impl AppState {
     /// the lock until it finishes.
     pub(crate) async fn lock_root_changes(&self) -> tokio::sync::OwnedMutexGuard<()> {
         Arc::clone(&self.0.root_changes).lock_owned().await
+    }
+
+    pub(crate) fn track_root_change(
+        &self,
+    ) -> Result<tokio_util::task::task_tracker::TaskTrackerToken, HttpError> {
+        // Register before checking closure: shutdown either waits for this
+        // token, or the closed tracker rejects the edit before it can write.
+        let token = self.0.root_edits.token();
+        if self.0.root_edits.is_closed() {
+            return Err(HttpError::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::NotReady,
+                "服务正在关闭",
+            ));
+        }
+        Ok(token)
+    }
+
+    pub(crate) fn close_root_edits(&self) -> tokio_util::task::TaskTracker {
+        self.0.root_edits.close();
+        self.0.root_edits.clone()
     }
 
     pub(crate) fn remove_root(&self, id: &str) {

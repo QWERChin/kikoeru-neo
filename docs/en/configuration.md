@@ -70,7 +70,7 @@ Sizes accept nonnegative integer byte counts or strings such as `"512MiB"`. `KB`
 
 ## Interface settings versus file settings
 
-Libraries added through the interface are stored in the database. Changes take effect immediately and do not rewrite TOML. Remote passwords are stored in `secrets/roots/<id>.password`. Libraries declared in the file are read-only in the interface.
+Libraries added through the interface are stored in the database. Changes take effect immediately and do not rewrite TOML. Remote passwords are stored in `secrets/roots/<id>.<version>.password`. Libraries declared in the file are read-only in the interface.
 
 The administrator's Network proxy setting (“网络代理”) is also stored in the database and takes effect immediately. It is not a TOML option. It applies to DLsite, asmr.one and hvdb requests, not OpenList or WebDAV media. The proxy must be reachable from the backend machine, or from your computer in desktop local mode. See [Security and networking](security.md) for credential and transport limits.
 

@@ -53,6 +53,155 @@ async fn list(app: &App, token: &str) -> Vec<Value> {
     body.as_array().unwrap().clone()
 }
 
+async fn password_path(app: &App, id: &str) -> std::path::PathBuf {
+    let stored = neo_db::roots::list_stored(&app.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|row| row.id == id)
+        .unwrap();
+    let settings: neo_server::roots::StoredSettings =
+        serde_json::from_str(&stored.settings).unwrap();
+    settings.password_path(app.data_dir(), id).unwrap()
+}
+
+#[tokio::test]
+async fn a_rejected_commit_keeps_the_old_credentials_and_reclaims_only_orphans() {
+    let (app, token) = setup().await;
+    let mut request = unreachable_openlist("remote");
+    request["skip_check"] = json!(true);
+    let (status, _) = app
+        .send(
+            Req::post("/api/admin/roots")
+                .token(&token)
+                .json(request.clone()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let old = password_path(&app, "remote").await;
+    app.exec("CREATE TRIGGER reject_root BEFORE UPDATE ON root_settings BEGIN SELECT RAISE(ABORT, 'injected root commit failure'); END;").await;
+    request["settings"]["url"] = json!("http://new.test/");
+    request["settings"]["password"] = json!("replacement-password");
+    let (status, body) = app
+        .send(
+            Req::put("/api/admin/roots/remote")
+                .token(&token)
+                .json(request),
+        )
+        .await;
+    assert_error(
+        status,
+        &body,
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "internal_error",
+    );
+    assert_eq!(password_path(&app, "remote").await, old);
+    assert_eq!(std::fs::read_to_string(&old).unwrap(), "secret");
+    let roots = list(&app, &token).await;
+    assert_eq!(roots[2]["settings"]["url"], "http://127.0.0.1:9/");
+    let _secrets = neo_server::roots::lock_secrets(app.data_dir()).unwrap();
+    neo_server::roots::cleanup_passwords(app.data_dir(), &app.db)
+        .await
+        .unwrap();
+    assert!(old.is_file());
+    assert_eq!(
+        std::fs::read_dir(app.data_dir().join("secrets/roots"))
+            .unwrap()
+            .count(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn password_reuse_checks_the_committed_address_when_the_registry_is_stale() {
+    let (app, token) = setup().await;
+    let mut request = unreachable_openlist("remote");
+    request["skip_check"] = json!(true);
+    let (status, _) = app
+        .send(
+            Req::post("/api/admin/roots")
+                .token(&token)
+                .json(request.clone()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    // Model a successful commit whose acknowledgement never reached the
+    // handler. The registry still holds the previous committed edit.
+    let mut stored = neo_db::roots::list_stored(&app.db).await.unwrap().remove(0);
+    let mut settings: Value = serde_json::from_str(&stored.settings).unwrap();
+    settings["url"] = json!("http://new.test/");
+    settings["password_version"] = json!(
+        neo_server::roots::write_password(app.data_dir(), "remote", "replacement-password")
+            .unwrap()
+    );
+    stored.settings = settings.to_string();
+    neo_db::roots::update_stored(&app.db, &stored, true, 1)
+        .await
+        .unwrap();
+
+    request["settings"]
+        .as_object_mut()
+        .unwrap()
+        .remove("password");
+    let (status, body) = app
+        .send(
+            Req::put("/api/admin/roots/remote")
+                .token(&token)
+                .json(request),
+        )
+        .await;
+    assert_error(status, &body, StatusCode::BAD_REQUEST, "invalid_request");
+    assert_eq!(
+        std::fs::read_to_string(password_path(&app, "remote").await).unwrap(),
+        "replacement-password"
+    );
+}
+
+#[tokio::test]
+async fn cleanup_keeps_old_files_until_the_reference_change_is_durable() {
+    let (app, token) = setup().await;
+    let mut request = unreachable_openlist("remote");
+    request["skip_check"] = json!(true);
+    let (status, _) = app
+        .send(
+            Req::post("/api/admin/roots")
+                .token(&token)
+                .json(request.clone()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let old = password_path(&app, "remote").await;
+    app.exec("PRAGMA busy_timeout = 0").await;
+    let mut reader = app.db.sqlite().unwrap().read.begin().await.unwrap();
+    sqlx::query("SELECT * FROM root_settings")
+        .fetch_all(&mut *reader)
+        .await
+        .unwrap();
+    request["settings"]["password"] = json!("replacement-password");
+    let (status, body) = app
+        .send(
+            Req::put("/api/admin/roots/remote")
+                .token(&token)
+                .json(request),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let new = password_path(&app, "remote").await;
+    assert_ne!(old, new);
+    assert!(old.is_file(), "a blocked checkpoint must defer deletion");
+    assert_eq!(
+        std::fs::read_to_string(&new).unwrap(),
+        "replacement-password"
+    );
+    reader.rollback().await.unwrap();
+    let _secrets = neo_server::roots::lock_secrets(app.data_dir()).unwrap();
+    neo_server::roots::cleanup_passwords(app.data_dir(), &app.db)
+        .await
+        .unwrap();
+    assert!(!old.exists());
+    assert!(new.is_file());
+}
+
 #[tokio::test]
 async fn a_local_root_is_added_listed_and_scanned_without_a_restart() {
     let (app, token) = setup().await;
@@ -176,6 +325,7 @@ async fn an_unreachable_openlist_is_saved_only_when_asked() {
     assert_eq!(status, StatusCode::CREATED, "{body}");
     assert_eq!(body["settings"]["password_set"], true);
     assert!(!body.to_string().contains("secret"), "{body}");
+    let password = password_path(&app, "remote").await;
     assert_eq!(std::fs::read_to_string(&password).unwrap(), "secret");
     #[cfg(unix)]
     {
@@ -205,7 +355,7 @@ async fn a_stored_root_is_edited_in_place() {
         .send(Req::post("/api/admin/roots").token(&token).json(request))
         .await;
     assert_eq!(status, StatusCode::CREATED);
-    let password = app.data_dir().join("secrets/roots/remote.password");
+    let password = password_path(&app, "remote").await;
     app.exec(
         "INSERT INTO works (id, code, title, metadata_src, created_at, updated_at)
            VALUES (1, 'RJ000001', 'Work', 'scan', 0, 0);
@@ -336,6 +486,7 @@ async fn removing_a_root_marks_its_works_missing() {
         .send(Req::post("/api/admin/roots").token(&token).json(request))
         .await;
     assert_eq!(status, StatusCode::CREATED);
+    let password = password_path(&app, "remote").await;
     app.exec(
         "INSERT INTO works (id, code, title, metadata_src, created_at, updated_at)
            VALUES (1, 'RJ000001', 'Only remote', 'scan', 0, 0),
@@ -365,11 +516,7 @@ async fn removing_a_root_marks_its_works_missing() {
         .send(Req::delete("/api/admin/roots/remote").token(&token))
         .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
-    assert!(
-        !app.data_dir()
-            .join("secrets/roots/remote.password")
-            .exists()
-    );
+    assert!(!password.exists());
     assert_eq!(list(&app, &token).await.len(), 2);
 
     let missing: Vec<(i64, bool)> =
