@@ -302,8 +302,9 @@ pub async fn mark_track_missing(
     Ok(())
 }
 
-/// Records a full walk's time and digest, or a partial walk's empty-string
-/// marker with no time. Only a complete listing permits progress matching.
+/// Records a full walk's time and digest. A partial walk has no time and
+/// keeps a pending re-probe's NULL or uses an empty-string marker.
+/// Only a complete listing permits progress matching.
 ///
 /// # Errors
 /// Any database error.
