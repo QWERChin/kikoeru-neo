@@ -429,7 +429,7 @@ pub mod scan {
         tx fn restore_track(track_id: i64) -> sqlx::Result<()>;
         tx fn insert_track(work_id: i64, location_id: i64, rel_path: &[u8], file: ListedFile<'_>, imported_duration_ms: Option<i64>) -> sqlx::Result<i64>;
         tx fn mark_track_missing(track_id: i64, now: i64) -> sqlx::Result<()>;
-        tx fn set_listed(location_id: i64, now: i64, digest: &str) -> sqlx::Result<()>;
+        tx fn set_listed(location_id: i64, now: Option<i64>, digest: Option<&str>) -> sqlx::Result<()>;
         tx fn work_copies(work_id: i64) -> sqlx::Result<Vec<CopyRow>>;
         tx fn set_duplicate_of(track_id: i64, kept: Option<i64>) -> sqlx::Result<()>;
         tx fn move_progress(from: i64, to: i64) -> sqlx::Result<()>;

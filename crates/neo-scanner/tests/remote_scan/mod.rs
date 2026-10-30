@@ -1,9 +1,6 @@
 //! Empty remote roots preserve the library through the unavailable-root path.
 
-#[path = "../../../neo-storage/tests/fake_openlist/mod.rs"]
-mod openlist;
-
-use super::fake_webdav as webdav;
+use super::{fake_openlist as openlist, fake_webdav as webdav};
 
 use neo_db::{roots, scan, testing};
 use neo_scanner::{NoObserver, Root, ScanError, scan_root};

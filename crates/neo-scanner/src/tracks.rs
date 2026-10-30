@@ -7,7 +7,7 @@ use neo_db::{
     Db, Tx,
     scan::{self, CopyRow, ListedFile},
 };
-use neo_storage::{Entry, EntryKind, StorageError, WalkEntry};
+use neo_storage::{Entry, EntryKind, PartialWalk, StorageError};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -30,7 +30,7 @@ pub enum Listing {
     /// The top level matches the digest of the last full walk.
     Unchanged,
     Tree {
-        entries: Vec<WalkEntry>,
+        walk: PartialWalk,
         reprobe: bool,
     },
     Failed(StorageError),
@@ -59,18 +59,18 @@ pub async fn list_location(root: &Root<'_>, location: &Present, stored: Option<&
             Err(e) => return Listing::Failed(e),
         }
     }
-    match root.storage.walk(&location.rel_path).await {
-        Ok(entries) => Listing::Tree {
-            entries,
+    match root.storage.walk_partial(&location.rel_path).await {
+        Ok(walk) => Listing::Tree {
+            walk,
             reprobe: stored.is_none(),
         },
         Err(e) => Listing::Failed(e),
     }
 }
 
-/// Writes a listing in one transaction. A failed listing leaves every
-/// track of the location as it was, because a partial tree would mark the
-/// rest missing. Returns whether the location counts as synced.
+/// Writes readable subtrees in one transaction, leaving failed paths and
+/// their descendants untouched. Only a full listing counts as synced for
+/// matching imported progress.
 pub async fn apply_listing(
     db: &Db,
     root: &Root<'_>,
@@ -80,15 +80,33 @@ pub async fn apply_listing(
     observer: &dyn Observer,
     summary: &mut Summary,
 ) -> Result<bool, sqlx::Error> {
-    let (tree, reprobe) = match listing {
+    let (walk, reprobe) = match listing {
         Listing::Unchanged => {
             summary.works_unchanged += 1;
             return Ok(true);
         }
-        Listing::Tree { entries, reprobe } => (entries, reprobe),
+        Listing::Tree { walk, reprobe } => (walk, reprobe),
         Listing::Failed(e) => return not_listed(location, &e, summary),
     };
-    let top: Vec<Entry> = tree
+    let complete = walk.failed.is_empty();
+    if !complete {
+        summary.works_failed += 1;
+        for (path, error) in &walk.failed {
+            summary.log(format!(
+                "{}/{}: not listed, subtree tracks unchanged: {error}",
+                location.display,
+                names::display_text(path.as_bytes())
+            ));
+        }
+    }
+    let protected = |path: &[u8]| {
+        walk.failed.iter().any(|(failed, _)| {
+            path.strip_prefix(failed.as_bytes())
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(b"/"))
+        })
+    };
+    let top: Vec<Entry> = walk
+        .entries
         .iter()
         .filter(|item| !item.path.as_bytes().contains(&b'/'))
         .map(|item| item.entry.clone())
@@ -115,7 +133,10 @@ pub async fn apply_listing(
     let mut seen = HashSet::new();
     let mut probe_ids = Vec::new();
     let mut tx = db.begin().await?;
-    for item in tree {
+    for item in walk.entries {
+        if protected(item.path.as_bytes()) {
+            continue;
+        }
         match item.entry.kind {
             EntryKind::File => {}
             EntryKind::Dir => continue,
@@ -196,18 +217,24 @@ pub async fn apply_listing(
         }
     }
     for (rel, old) in &existing {
-        if !old.missing && !seen.contains(rel) {
+        if !old.missing && !seen.contains(rel) && !protected(rel) {
             scan::mark_track_missing(&mut tx, old.id, now).await?;
             summary.tracks_missing += 1;
         }
     }
-    scan::set_listed(&mut tx, location.location_id, now, &digest).await?;
+    scan::set_listed(
+        &mut tx,
+        location.location_id,
+        complete.then_some(now),
+        complete.then_some(digest.as_str()),
+    )
+    .await?;
     tx.commit().await?;
     if !probe_ids.is_empty() {
         observer.probe(&probe_ids);
         summary.probe.extend(probe_ids);
     }
-    Ok(true)
+    Ok(complete)
 }
 
 fn not_listed(

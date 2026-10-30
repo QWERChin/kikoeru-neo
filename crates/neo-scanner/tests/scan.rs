@@ -1,8 +1,11 @@
 //! Scans through local and remote storage, checked against a temporary
 //! database. Every name and file is synthetic.
 
+#[path = "../../neo-storage/tests/fake_openlist/mod.rs"]
+mod fake_openlist;
 #[path = "../../webdav-client/tests/common/mod.rs"]
 mod fake_webdav;
+mod partial_walk;
 #[path = "remote_scan/mod.rs"]
 mod remote_scan;
 #[path = "webdav_scan/mod.rs"]

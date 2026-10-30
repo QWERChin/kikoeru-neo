@@ -97,7 +97,8 @@ pub struct Summary {
     pub tracks_changed: u64,
     pub tracks_missing: u64,
     pub tracks_restored: u64,
-    /// Works whose file tree could not be listed. Their tracks are unchanged.
+    /// Locations whose file tree could not be fully listed. Failed
+    /// subtrees keep their tracks while readable siblings are synced.
     pub works_failed: u64,
     /// Locations not walked because their top-level listing matched the
     /// stored digest.
@@ -107,8 +108,8 @@ pub struct Summary {
     pub pending_superseded: u64,
     /// Pending rows with no track at the old path yet. They stay pending.
     pub pending_not_found: u64,
-    /// Pending rows of works with a location no scan has listed yet, in
-    /// this or another root. They stay pending.
+    /// Pending rows of works with a location that has no complete listing,
+    /// in this or another root. They stay pending.
     pub pending_deferred: u64,
     /// Local audio and video tracks that need ffprobe.
     pub probe: Vec<i64>,
