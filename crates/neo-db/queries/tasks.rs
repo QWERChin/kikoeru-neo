@@ -8,6 +8,10 @@ use neo_core::db::tasks::*;
 tokio::task_local! {
     /// Commits when true or rolls back when false, then loses the acknowledgement.
     pub static ENQUEUE_COMMIT_OUTCOME: bool;
+    /// Hands the open transaction to the test before losing the acknowledgement.
+    pub static ENQUEUE_PENDING: std::sync::Mutex<Option<tokio::sync::oneshot::Sender<(i64, crate::Tx<'static>)>>>;
+    /// Reports when the retained runner has checked the database.
+    pub static ENQUEUE_CHECKED: std::sync::Arc<tokio::sync::Notify>;
 }
 
 /// Inserts a queued task unless an active one has the same `dedupe_key`.
@@ -76,38 +80,88 @@ async fn enqueue_once(
     )
     .fetch_one(&mut *tx)
     .await?;
+    // PostgreSQL-specific SQL: a row ID alone cannot identify the outcome
+    // after a crash rolls back an uncommitted sequence advancement.
+    let xid: Option<String> = if <crate::Database as sqlx::Database>::NAME == "PostgreSQL" {
+        Some(
+            sqlx::query_scalar("SELECT pg_current_xact_id()::text")
+                .fetch_one(&mut *tx)
+                .await?,
+        )
+    } else {
+        None
+    };
     #[cfg(not(feature = "testing"))]
     let committed = tx.commit().await;
     #[cfg(feature = "testing")]
-    let committed = match ENQUEUE_COMMIT_OUTCOME.try_with(|commit| *commit) {
-        Ok(commit) => {
-            if commit {
-                tx.commit().await?;
-            } else {
-                tx.rollback().await?;
+    let committed = if let Some(pending) = ENQUEUE_PENDING
+        .try_with(|pending| pending.lock().unwrap().take())
+        .ok()
+        .flatten()
+    {
+        pending.send((id, tx)).unwrap();
+        Err(std::io::Error::new(
+            std::io::ErrorKind::ConnectionReset,
+            "enqueue commit acknowledgement lost",
+        )
+        .into())
+    } else {
+        match ENQUEUE_COMMIT_OUTCOME.try_with(|commit| *commit) {
+            Ok(commit) => {
+                if commit {
+                    tx.commit().await?;
+                } else {
+                    tx.rollback().await?;
+                }
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionReset,
+                    "enqueue commit acknowledgement lost",
+                )
+                .into())
             }
-            Err(std::io::Error::new(
-                std::io::ErrorKind::ConnectionReset,
-                "enqueue commit acknowledgement lost",
-            )
-            .into())
+            Err(_) => tx.commit().await,
         }
-        Err(_) => tx.commit().await,
     };
     if let Err(error) = committed {
-        if <crate::Database as sqlx::Database>::NAME == "PostgreSQL"
+        if let Some(xid) = xid
             && matches!(
                 error,
                 sqlx::Error::Io(_) | sqlx::Error::Tls(_) | sqlx::Error::Protocol(_)
             )
         {
-            // Sequence IDs are not reused after rollback. A runner can
-            // check this exact row without adopting another submit's job.
-            return Ok(Enqueued::CommitUnknown { id, error });
+            return Ok(Enqueued::CommitUnknown { id, xid, error });
         }
         return Err(error);
     }
     Ok(Enqueued::Created(id))
+}
+
+/// Checks a PostgreSQL transaction returned by [`Enqueued::CommitUnknown`].
+/// Each poll uses the read pool outside the original transaction, so it
+/// neither waits for the write connection nor reuses an old snapshot.
+///
+/// # Errors
+/// Any database error, including an unrecognized transaction status.
+pub async fn enqueue_commit_status(
+    read: &crate::Pool,
+    xid: &str,
+) -> Result<CommitStatus, sqlx::Error> {
+    // This PostgreSQL-only query is reached only for CommitUnknown.
+    let status: Option<String> = sqlx::query_scalar("SELECT pg_xact_status($1::text::xid8)")
+        .bind(xid)
+        .fetch_one(read)
+        .await?;
+    #[cfg(feature = "testing")]
+    let _ = ENQUEUE_CHECKED.try_with(|checked| checked.notify_one());
+    match status.as_deref() {
+        Some("in progress") => Ok(CommitStatus::InProgress),
+        Some("committed") => Ok(CommitStatus::Committed),
+        Some("aborted") => Ok(CommitStatus::Aborted),
+        None => Ok(CommitStatus::Unavailable),
+        Some(other) => Err(sqlx::Error::Protocol(format!(
+            "unexpected transaction status: {other}"
+        ))),
+    }
 }
 
 /// The queued or running task with this `dedupe_key`, if any.

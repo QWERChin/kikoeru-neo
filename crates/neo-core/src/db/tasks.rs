@@ -29,15 +29,27 @@ pub struct Recovered {
 pub enum Enqueued {
     Created(i64),
     /// PostgreSQL returned an insert ID, but the commit acknowledgement was
-    /// lost. Keep the original job until its runner can check the row.
+    /// lost. Keep the original job until its transaction outcome is known.
     CommitUnknown {
         id: i64,
+        /// The full PostgreSQL xid8, kept as text without narrowing to xid32.
+        xid: String,
         error: sqlx::Error,
     },
     /// An active task with the same `dedupe_key` already exists.
     Existing(i64),
     /// `queue_limit` tasks of the same kind are already waiting.
     QueueFull,
+}
+
+/// The outcome of a PostgreSQL enqueue transaction whose acknowledgement was lost.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommitStatus {
+    InProgress,
+    Committed,
+    Aborted,
+    /// PostgreSQL has discarded the transaction's status.
+    Unavailable,
 }
 
 /// The end states a running or queued task can move to.

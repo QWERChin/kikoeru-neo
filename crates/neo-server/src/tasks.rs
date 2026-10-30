@@ -16,7 +16,7 @@ use std::{
 use futures_util::future::BoxFuture;
 use neo_db::{
     Db, now_ms,
-    tasks::{self, EndState, Enqueued, TaskRow},
+    tasks::{self, CommitStatus, EndState, Enqueued, TaskRow},
 };
 use tokio::sync::{Semaphore, oneshot, watch};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
@@ -284,21 +284,49 @@ impl Scheduler {
             now_ms(),
         )
         .await?;
-        let (id, result) = match enqueued {
-            Enqueued::Existing(id) => return Ok(Submitted { id, created: false }),
-            Enqueued::QueueFull => return Err(SubmitError::QueueFull),
-            Enqueued::Created(id) => (id, Ok(Submitted { id, created: true })),
-            // The runner's conditional start checks that the row committed
-            // and retries database outages. Preserve the submit error even
-            // when the retained job can run without another request.
-            Enqueued::CommitUnknown { id, error } => (id, Err(SubmitError::Db(error))),
-        };
         let about = About {
             kind: spec.kind.to_owned(),
             payload,
         };
+        let id = match enqueued {
+            Enqueued::Existing(id) => return Ok(Submitted { id, created: false }),
+            Enqueued::QueueFull => return Err(SubmitError::QueueFull),
+            Enqueued::Created(id) => id,
+            Enqueued::CommitUnknown { id, xid, error } => {
+                let this = self.clone();
+                self.spawn_tracked(async move {
+                    // Until commit is confirmed, this ID might belong to
+                    // another submit. Do not register or cancel its runner.
+                    if this.wait_for_enqueue_commit(id, &xid).await {
+                        this.spawn(id, about, spec.lane, spec.timeout, job);
+                    }
+                });
+                return Err(SubmitError::Db(error));
+            }
+        };
         self.spawn(id, about, spec.lane, spec.timeout, job);
-        result
+        Ok(Submitted { id, created: true })
+    }
+
+    async fn wait_for_enqueue_commit(&self, id: i64, xid: &str) -> bool {
+        let status = self
+            .0
+            .shutdown
+            .run_until_cancelled(self.retry_task_state(id, || async {
+                let status = tasks::enqueue_commit_status(&self.0.db, xid).await?;
+                Ok((status != CommitStatus::InProgress).then_some(status))
+            }))
+            .await
+            .flatten();
+        match status {
+            Some(CommitStatus::Committed) => true,
+            Some(CommitStatus::Aborted) => false,
+            _ => {
+                tracing::warn!(task = id, %xid, ?status,
+                    "enqueue commit unresolved; leaving any queued row to startup recovery");
+                false
+            }
+        }
     }
 
     /// Picks up tasks left by the previous process: `running` ones become
@@ -726,12 +754,23 @@ impl Scheduler {
         F: Fn() -> Fut,
         Fut: std::future::Future<Output = Result<T, sqlx::Error>>,
     {
+        self.retry_task_state(id, || async { write().await.map(Some) })
+            .await
+    }
+
+    /// A successful read can still be pending, such as an in-progress commit.
+    async fn retry_task_state<T, F, Fut>(&self, id: i64, query: F) -> Option<T>
+    where
+        F: Fn() -> Fut,
+        Fut: std::future::Future<Output = Result<Option<T>, sqlx::Error>>,
+    {
         let mut delay = Duration::from_millis(100);
         loop {
-            match write().await {
-                Ok(value) => return Some(value),
+            match query().await {
+                Ok(Some(value)) => return Some(value),
+                Ok(None) => {}
                 Err(error) => {
-                    tracing::error!(task = id, %error, "cannot record the task state, retrying")
+                    tracing::error!(task = id, %error, "cannot access the task state, retrying")
                 }
             }
             tokio::select! {
