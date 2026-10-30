@@ -1437,13 +1437,36 @@ async fn a_work_hvdb_cannot_answer_for_keeps_its_other_metadata() {
     assert_eq!(hvdb.log.lock().unwrap().len(), 4, "one try and 3 retries");
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn hvdb_requests_are_spaced_and_follow_no_redirect() {
+    // An unsupported scheme fails before network I/O, so only the limiter
+    // and zero-length retry backoffs advance Tokio's paused clock.
+    let hvdb = HvdbProvider::new(HvdbConfig {
+        base: "ftp://hvdb.invalid/".parse().unwrap(),
+        spacing: Duration::from_millis(200),
+        retries: 3,
+        backoff: Duration::ZERO,
+        ..HvdbConfig::default()
+    })
+    .unwrap();
+    let start = Instant::now();
+    // The first attempt is immediate. Later attempts, including the first
+    // attempt of the next lookup, each wait another 200 ms.
+    for elapsed_ms in [600, 1400] {
+        assert!(matches!(
+            hvdb.voice_actors("RJ01000005").await,
+            Err(MetadataError::Unavailable(_))
+        ));
+        assert_eq!(start.elapsed(), Duration::from_millis(elapsed_ms));
+    }
+
+    // Real HTTP checks use the running clock so I/O cannot auto-advance
+    // virtual time to a request timeout.
+    tokio::time::resume();
     let (fake, base) = hvdb_site(&[1000005], HvdbMode::Down).await;
-    let spacing = Duration::from_millis(200);
     let hvdb = HvdbProvider::new(HvdbConfig {
         base,
-        spacing,
+        spacing: Duration::ZERO,
         backoff: Duration::ZERO,
         timeout: Duration::from_secs(5),
         ..HvdbConfig::default()
@@ -1456,13 +1479,7 @@ async fn hvdb_requests_are_spaced_and_follow_no_redirect() {
             Err(MetadataError::Unavailable(_))
         ));
     }
-    let log = fake.log.lock().unwrap().clone();
-    assert_eq!(log.len(), 8);
-    // Arrival times carry connection jitter, and unspaced retries would
-    // arrive about a millisecond apart.
-    for pair in log.windows(2) {
-        assert!(pair[1].1 - pair[0].1 >= spacing * 3 / 4, "{log:?}");
-    }
+    assert_eq!(fake.log.lock().unwrap().len(), 8);
     assert!(hvdb.voice_actors("BJ01000005").await.unwrap().is_empty());
     assert_eq!(fake.log.lock().unwrap().len(), 8, "only RJ works are asked");
 
