@@ -17,6 +17,111 @@ use neo_db::{
 
 use super::{About, Job, Lane, Scheduler};
 
+#[cfg(feature = "postgres")]
+#[tokio::test]
+#[ignore = "needs a disposable PostgreSQL server with KIKOERU_TEST_BACKEND=postgres"]
+async fn a_lost_enqueue_commit_ack_does_not_strand_the_task() {
+    lost_enqueue_ack(Some("scan:synthetic")).await;
+}
+
+#[cfg(feature = "postgres")]
+#[tokio::test]
+#[ignore = "needs a disposable PostgreSQL server with KIKOERU_TEST_BACKEND=postgres"]
+async fn a_lost_enqueue_commit_ack_without_a_dedupe_key_still_runs() {
+    lost_enqueue_ack(None).await;
+}
+
+#[cfg(feature = "postgres")]
+fn enqueue_spec(key: Option<&str>) -> super::TaskSpec {
+    super::TaskSpec {
+        kind: "scan",
+        dedupe_key: key.map(str::to_owned),
+        payload: serde_json::json!({"root": "synthetic"}),
+        lane: Lane::Scan,
+        timeout: None,
+        queue_limit: None,
+    }
+}
+
+#[cfg(feature = "postgres")]
+async fn lost_enqueue_ack(key: Option<&str>) {
+    assert!(neo_db::testing::on_postgres());
+    let test = neo_db::testing::open().await;
+    let scheduler = Scheduler::new(test.db.clone(), 1, 4);
+    let cleanup = scheduler.try_scan_slot().unwrap();
+    let (ran, started) = tokio::sync::oneshot::channel();
+    let job: Job = Box::new(|_| {
+        async move {
+            ran.send(()).unwrap();
+            Ok(Some(serde_json::json!({"original": true})))
+        }
+        .boxed()
+    });
+    // Scope the fault inside submit's owned operation, since task-local
+    // hooks do not propagate into the task that submit spawns.
+    let error = tasks::ENQUEUE_COMMIT_OUTCOME
+        .scope(true, scheduler.enqueue_and_spawn(enqueue_spec(key), job))
+        .await
+        .unwrap_err();
+    assert!(matches!(error, super::SubmitError::Db(sqlx::Error::Io(_))));
+    let rows = tasks::list(&test.db, None, None, 10, 0).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    let id = rows[0].id;
+    assert_eq!(rows[0].state, "queued");
+    if key.is_some() {
+        let duplicate = scheduler
+            .submit(
+                enqueue_spec(key),
+                Box::new(|_| async { panic!("the duplicate job must not run") }.boxed()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(duplicate.id, id);
+        assert!(!duplicate.created);
+    }
+    drop(cleanup);
+    tokio::time::timeout(Duration::from_secs(60), started)
+        .await
+        .expect("the committed task must run without a restart")
+        .expect("the original job must not be dropped");
+    scheduler.0.tracker.close();
+    tokio::time::timeout(Duration::from_secs(60), scheduler.0.tracker.wait())
+        .await
+        .unwrap();
+    let done = scheduler.get(id).await.unwrap().unwrap();
+    assert_eq!(done.state, "done");
+    assert_eq!(done.result.as_deref(), Some("{\"original\":true}"));
+    assert_eq!(tasks::count(&test.db, None, None).await.unwrap(), 1);
+}
+
+#[cfg(feature = "postgres")]
+#[tokio::test]
+#[ignore = "needs a disposable PostgreSQL server with KIKOERU_TEST_BACKEND=postgres"]
+async fn an_uncommitted_enqueue_never_runs_its_job() {
+    assert!(neo_db::testing::on_postgres());
+    let test = neo_db::testing::open().await;
+    let scheduler = Scheduler::new(test.db.clone(), 1, 4);
+    let (ran, started) = tokio::sync::oneshot::channel();
+    let job: Job = Box::new(|_| {
+        async move {
+            ran.send(()).unwrap();
+            Ok(None)
+        }
+        .boxed()
+    });
+    let error = tasks::ENQUEUE_COMMIT_OUTCOME
+        .scope(false, scheduler.enqueue_and_spawn(enqueue_spec(None), job))
+        .await
+        .unwrap_err();
+    assert!(matches!(error, super::SubmitError::Db(sqlx::Error::Io(_))));
+    scheduler.0.tracker.close();
+    tokio::time::timeout(Duration::from_secs(60), scheduler.0.tracker.wait())
+        .await
+        .unwrap();
+    assert!(started.await.is_err(), "a rolled-back task must not run");
+    assert_eq!(tasks::count(&test.db, None, None).await.unwrap(), 0);
+}
+
 async fn eventually(condition: impl Fn() -> bool, what: &str) {
     let deadline = std::time::Instant::now() + Duration::from_secs(60);
     while !condition() {

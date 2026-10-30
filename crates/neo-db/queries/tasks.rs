@@ -4,9 +4,17 @@
 
 use neo_core::db::tasks::*;
 
+#[cfg(feature = "testing")]
+tokio::task_local! {
+    /// Commits when true or rolls back when false, then loses the acknowledgement.
+    pub static ENQUEUE_COMMIT_OUTCOME: bool;
+}
+
 /// Inserts a queued task unless an active one has the same `dedupe_key`.
 /// The check and the insert share one transaction on the single write
 /// connection, so two callers cannot both create a task for one key.
+/// A lost PostgreSQL commit acknowledgement returns [`Enqueued::CommitUnknown`]
+/// so the scheduler can retain the job while preserving the submit error.
 ///
 /// # Errors
 /// Any database error.
@@ -68,7 +76,37 @@ async fn enqueue_once(
     )
     .fetch_one(&mut *tx)
     .await?;
-    tx.commit().await?;
+    #[cfg(not(feature = "testing"))]
+    let committed = tx.commit().await;
+    #[cfg(feature = "testing")]
+    let committed = match ENQUEUE_COMMIT_OUTCOME.try_with(|commit| *commit) {
+        Ok(commit) => {
+            if commit {
+                tx.commit().await?;
+            } else {
+                tx.rollback().await?;
+            }
+            Err(std::io::Error::new(
+                std::io::ErrorKind::ConnectionReset,
+                "enqueue commit acknowledgement lost",
+            )
+            .into())
+        }
+        Err(_) => tx.commit().await,
+    };
+    if let Err(error) = committed {
+        if <crate::Database as sqlx::Database>::NAME == "PostgreSQL"
+            && matches!(
+                error,
+                sqlx::Error::Io(_) | sqlx::Error::Tls(_) | sqlx::Error::Protocol(_)
+            )
+        {
+            // Sequence IDs are not reused after rollback. A runner can
+            // check this exact row without adopting another submit's job.
+            return Ok(Enqueued::CommitUnknown { id, error });
+        }
+        return Err(error);
+    }
     Ok(Enqueued::Created(id))
 }
 

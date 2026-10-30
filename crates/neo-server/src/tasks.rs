@@ -284,17 +284,21 @@ impl Scheduler {
             now_ms(),
         )
         .await?;
-        let id = match enqueued {
+        let (id, result) = match enqueued {
             Enqueued::Existing(id) => return Ok(Submitted { id, created: false }),
             Enqueued::QueueFull => return Err(SubmitError::QueueFull),
-            Enqueued::Created(id) => id,
+            Enqueued::Created(id) => (id, Ok(Submitted { id, created: true })),
+            // The runner's conditional start checks that the row committed
+            // and retries database outages. Preserve the submit error even
+            // when the retained job can run without another request.
+            Enqueued::CommitUnknown { id, error } => (id, Err(SubmitError::Db(error))),
         };
         let about = About {
             kind: spec.kind.to_owned(),
             payload,
         };
         self.spawn(id, about, spec.lane, spec.timeout, job);
-        Ok(Submitted { id, created: true })
+        result
     }
 
     /// Picks up tasks left by the previous process: `running` ones become

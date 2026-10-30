@@ -361,6 +361,8 @@ pub mod tags {
 
 pub mod tasks {
     pub use neo_core::db::tasks::*;
+    #[cfg(all(feature = "testing", feature = "postgres"))]
+    pub use neo_db_postgres::tasks::ENQUEUE_COMMIT_OUTCOME;
 
     dispatch! { tasks;
         write fn enqueue(kind: &str, dedupe_key: Option<&str>, payload: &str, queue_limit: Option<i64>, now: i64) -> Result<Enqueued, sqlx::Error>;

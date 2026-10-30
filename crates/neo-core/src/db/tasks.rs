@@ -25,9 +25,15 @@ pub struct Recovered {
     pub queued: Vec<TaskRow>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Enqueued {
     Created(i64),
+    /// PostgreSQL returned an insert ID, but the commit acknowledgement was
+    /// lost. Keep the original job until its runner can check the row.
+    CommitUnknown {
+        id: i64,
+        error: sqlx::Error,
+    },
     /// An active task with the same `dedupe_key` already exists.
     Existing(i64),
     /// `queue_limit` tasks of the same kind are already waiting.
