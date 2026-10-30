@@ -126,11 +126,12 @@ async fn lost_enqueue_ack(key: Option<&str>) {
         }
         .boxed()
     });
-    let error = scheduler.submit(enqueue_spec(key), job).await.unwrap_err();
-    assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
+    let submitted = scheduler.submit(enqueue_spec(key), job).await.unwrap();
+    assert!(submitted.created);
     let rows = tasks::list(&test.db, None, None, 10, 0).await.unwrap();
     assert_eq!(rows.len(), 1);
     let id = rows[0].id;
+    assert_eq!(submitted.id, id);
     assert_eq!(rows[0].state, "queued");
     if key.is_some() {
         let duplicate = scheduler
@@ -246,27 +247,125 @@ fn counted_job(runs: Arc<AtomicUsize>, result: serde_json::Value) -> Job {
 }
 
 #[test]
+fn a_pending_scan_enqueue_keeps_source_changes_out() {
+    with_pending_enqueue(|held, checked| {
+        async move {
+            let test = pending_enqueue_db().await;
+            let mut app = app().await;
+            app.db = test.db.clone();
+            app.state = neo_server::http::AppState::new(
+                app.db.clone(),
+                neo_server::token::Tokens::new(common::KEY),
+                vec![],
+            )
+            .with_data_dir(neo_server::datadir::DataDir::prepare(app.data_dir()).unwrap());
+            app.state.set_ready();
+            app.router = neo_server::http::router(app.state.clone());
+            app.user("admin", true).await;
+            let token = app.login("admin").await;
+            let old_source = app.data_dir().join("old");
+            let new_source = app.data_dir().join("new");
+            std::fs::create_dir(&old_source).unwrap();
+            std::fs::create_dir(&new_source).unwrap();
+            std::fs::write(old_source.join("placeholder.txt"), b"synthetic").unwrap();
+            let (status, body) = app
+                .send(Req::post("/api/admin/roots").token(&token).json(json!({
+                    "id": "synthetic", "display_name": "Synthetic",
+                    "settings": {"type": "local", "path": old_source},
+                })))
+                .await;
+            assert_eq!(status, StatusCode::CREATED, "{body}");
+
+            let app = Arc::new(app);
+            let scheduler = app.state.scheduler();
+            let slot = scheduler.try_scan_slot().unwrap();
+            let scanning = app.clone();
+            let scan_token = token.clone();
+            let mut scan = tokio::spawn(async move {
+                scanning
+                    .send(
+                        Req::post("/api/admin/scan")
+                            .token(&scan_token)
+                            .json(json!({"root": "synthetic"})),
+                    )
+                    .await
+            });
+            let (id, tx) = held.await.unwrap();
+            checked.notified().await;
+            let scan_reply = (&mut scan).now_or_never().map(Result::unwrap);
+            let mut change = Box::pin(
+                app.send(
+                    Req::put("/api/admin/roots/synthetic")
+                        .token(&token)
+                        .json(json!({
+                            "display_name": "Synthetic",
+                            "settings": {"type": "local", "path": new_source},
+                        })),
+                ),
+            );
+            // If admission already returned, finish the source change before
+            // committing. Otherwise it must wait for the admission guard.
+            let change_reply = if scan_reply.is_some() {
+                Some(
+                    tokio::time::timeout(Duration::from_secs(60), &mut change)
+                        .await
+                        .unwrap(),
+                )
+            } else {
+                tokio::time::timeout(Duration::from_millis(100), &mut change)
+                    .await
+                    .ok()
+            };
+            tx.commit().await.unwrap();
+            let (scan_status, scan_body) = match scan_reply {
+                Some(reply) => reply,
+                None => scan.await.unwrap(),
+            };
+            let (change_status, change_body) = match change_reply {
+                Some(reply) => reply,
+                None => change.await,
+            };
+            drop(slot);
+            wait_for(scheduler, id, "done").await;
+            scheduler.shutdown(Duration::from_secs(5)).await;
+            common::assert_error(
+                change_status,
+                &change_body,
+                StatusCode::CONFLICT,
+                "scan_running",
+            );
+            assert_eq!(scan_status, StatusCode::ACCEPTED, "{scan_body}");
+            assert_eq!(scan_body, json!({"task_ids": [id]}));
+        }
+        .boxed()
+    });
+}
+
+#[test]
 fn an_enqueue_still_in_progress_runs_once_after_commit() {
     with_pending_enqueue(|held, checked| {
         async move {
             let test = pending_enqueue_db().await;
             let scheduler = Scheduler::new(test.db.clone(), 1, 4);
             let runs = Arc::new(AtomicUsize::new(0));
-            let error = scheduler
-                .submit(
-                    spec("transcode", Some("pending")),
-                    counted_job(runs.clone(), json!({"original": true})),
-                )
-                .await
-                .unwrap_err();
-            assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
+            let submitting = scheduler.clone();
+            let job = counted_job(runs.clone(), json!({"original": true}));
+            let submit = tokio::spawn(async move {
+                submitting
+                    .submit(spec("transcode", Some("pending")), job)
+                    .await
+            });
             let (id, tx) = held.await.unwrap();
             tokio::time::timeout(Duration::from_secs(60), checked.notified())
                 .await
-                .expect("the runner must check before the transaction ends");
+                .expect("submit must check before the transaction ends");
+            assert!(!submit.is_finished());
             assert_eq!(runs.load(Ordering::SeqCst), 0);
             assert!(scheduler.get(id).await.unwrap().is_none());
             tx.commit().await.unwrap();
+            let submitted = submit.await.unwrap().unwrap();
+            assert_eq!(submitted.id, id);
+            assert!(submitted.created);
             let done = wait_for(&scheduler, id, "done").await;
             scheduler.shutdown(Duration::from_secs(5)).await;
             assert_eq!(runs.load(Ordering::SeqCst), 1);
@@ -285,14 +384,12 @@ fn an_aborted_enqueue_cannot_adopt_a_reused_task_id() {
             let scheduler = Scheduler::new(test.db.clone(), 1, 4);
             let slot = scheduler.try_scan_slot().unwrap();
             let old_runs = Arc::new(AtomicUsize::new(0));
-            let error = scheduler
-                .submit(
-                    enqueue_spec(Some("old")),
-                    counted_job(old_runs.clone(), json!({"job": "old"})),
-                )
-                .await
-                .unwrap_err();
-            assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
+            let submitting = scheduler.clone();
+            let job = counted_job(old_runs.clone(), json!({"job": "old"}));
+            let submit =
+                tokio::spawn(
+                    async move { submitting.submit(enqueue_spec(Some("old")), job).await },
+                );
             let (id, tx) = held.await.unwrap();
             tx.rollback().await.unwrap();
             let Db::Postgres(pg) = &test.db else {
@@ -314,6 +411,8 @@ fn an_aborted_enqueue_cannot_adopt_a_reused_task_id() {
                 .unwrap();
             assert_eq!(new.id, id);
             assert!(new.created);
+            let error = submit.await.unwrap().unwrap_err();
+            assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
             drop(slot);
             let done = wait_for(&scheduler, new.id, "done").await;
             scheduler.shutdown(Duration::from_secs(5)).await;
@@ -331,25 +430,75 @@ fn an_aborted_enqueue_cannot_adopt_a_reused_task_id() {
 }
 
 #[test]
+fn an_unresolved_enqueue_drops_its_job_before_returning() {
+    with_pending_enqueue(|held, _| {
+        async move {
+            let test = pending_enqueue_db().await;
+            let scheduler = Scheduler::new(test.db.clone(), 1, 4);
+            let (ran, mut started) = oneshot::channel();
+            let job: Job = Box::new(move |_| {
+                async move {
+                    let _ = ran.send(());
+                    Ok(None)
+                }
+                .boxed()
+            });
+            let error = tokio::time::timeout(
+                Duration::from_secs(10),
+                scheduler.submit(enqueue_spec(Some("pending")), job),
+            )
+            .await
+            .expect("submit must bound the wait for an unknown commit")
+            .unwrap_err();
+            let SubmitError::Db(sqlx::Error::Io(error)) = error else {
+                panic!("submit must return the original connection error")
+            };
+            assert_eq!(error.to_string(), "enqueue commit acknowledgement lost");
+            assert_eq!(
+                started.try_recv(),
+                Err(oneshot::error::TryRecvError::Closed)
+            );
+
+            let (id, tx) = held.await.unwrap();
+            tx.commit().await.unwrap();
+            let duplicate = scheduler
+                .submit(
+                    enqueue_spec(Some("pending")),
+                    Box::new(|_| {
+                        async { panic!("deduplication must not start a new job") }.boxed()
+                    }),
+                )
+                .await
+                .unwrap();
+            assert_eq!(duplicate.id, id);
+            assert!(!duplicate.created);
+            assert_eq!(scheduler.queue_position(id), None);
+            scheduler.shutdown(Duration::from_secs(5)).await;
+            assert_eq!(scheduler.get(id).await.unwrap().unwrap().state, "queued");
+        }
+        .boxed()
+    });
+}
+
+#[test]
 fn shutdown_leaves_an_unresolved_enqueue_for_startup_recovery() {
     with_pending_enqueue(|held, checked| {
         async move {
             let test = pending_enqueue_db().await;
             let scheduler = Scheduler::new(test.db.clone(), 1, 4);
             let old_runs = Arc::new(AtomicUsize::new(0));
-            let error = scheduler
-                .submit(
-                    spec("transcode", None),
-                    counted_job(old_runs.clone(), json!({"original": true})),
-                )
-                .await
-                .unwrap_err();
-            assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
+            let submitting = scheduler.clone();
+            let job = counted_job(old_runs.clone(), json!({"original": true}));
+            let submit =
+                tokio::spawn(async move { submitting.submit(spec("transcode", None), job).await });
             let (id, tx) = held.await.unwrap();
             tokio::time::timeout(Duration::from_secs(60), checked.notified())
                 .await
-                .expect("the runner must check the pending transaction");
+                .expect("submit must check the pending transaction");
+            assert!(!submit.is_finished());
             scheduler.shutdown(Duration::from_secs(5)).await;
+            let error = submit.await.unwrap().unwrap_err();
+            assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
             tx.commit().await.unwrap();
             assert_eq!(old_runs.load(Ordering::SeqCst), 0);
             assert_eq!(scheduler.get(id).await.unwrap().unwrap().state, "queued");

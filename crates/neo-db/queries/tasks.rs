@@ -10,7 +10,7 @@ tokio::task_local! {
     pub static ENQUEUE_COMMIT_OUTCOME: bool;
     /// Hands the open transaction to the test before losing the acknowledgement.
     pub static ENQUEUE_PENDING: std::sync::Mutex<Option<tokio::sync::oneshot::Sender<(i64, crate::Tx<'static>)>>>;
-    /// Reports when the retained runner has checked the database.
+    /// Reports when the scheduler has checked the transaction status.
     pub static ENQUEUE_CHECKED: std::sync::Arc<tokio::sync::Notify>;
 }
 
@@ -18,7 +18,7 @@ tokio::task_local! {
 /// The check and the insert share one transaction on the single write
 /// connection, so two callers cannot both create a task for one key.
 /// A lost PostgreSQL commit acknowledgement returns [`Enqueued::CommitUnknown`]
-/// so the scheduler can retain the job while preserving the submit error.
+/// so the scheduler can settle the outcome before returning to its caller.
 ///
 /// # Errors
 /// Any database error.

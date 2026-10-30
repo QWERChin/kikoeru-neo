@@ -71,14 +71,16 @@ GitHub Actions 的 `CI` 工作流在托管 runner 上按检查分别运行，检
 
 数据库测试用临时库覆盖迁移、事务、去重、缺失标记、用户状态和复制。`pg_schema` 比较两种数据库的结构，但不完整比较 `CHECK` 表达式。`progress_order`、`root_media` 和 `folder_cover` 等可切换后端的目标没有列入当前 `rust-test-pg` 命令，这是覆盖缺口。
 
-调度器的 `tasks` 集成测试已纳入 `rust-test-pg`，支持切换后端，但 SQLite 专用触发器、文件重开和 HTTP 测试夹具仍使用临时 SQLite。本地验证 PostgreSQL 入队提交结果不确定时，在开发环境里用 `initdb` 和 `pg_ctl` 启动只监听 Unix socket 的临时服务器，把 `KIKOERU_TEST_PG` 指向它，并运行：
+调度器的 `tasks` 集成测试已纳入 `rust-test-pg`，支持切换后端，但 SQLite 专用触发器、文件重开和通用 HTTP 测试夹具仍使用临时 SQLite。入队与来源修改的并发回归使用 PostgreSQL 上的 HTTP 路由。本地验证 PostgreSQL 入队提交结果不确定时，在开发环境里用 `initdb` 和 `pg_ctl` 启动只监听 Unix socket 的临时服务器，把 `KIKOERU_TEST_PG` 指向它，并运行：
 
 ```sh
 KIKOERU_TEST_BACKEND=postgres cargo test --locked -p neo-server --test tasks
 KIKOERU_TEST_BACKEND=postgres cargo test --locked -p neo-db --test db
 ```
 
-故障注入通过 `neo-db` 的 `testing` 开发依赖启用，并通过公开的 `Scheduler::submit` 验证行为。原有用例在真实事务提交或回滚后返回连接错误，检查带去重键和不带去重键的原任务继续执行、去重不运行第二份任务，以及回滚的任务不执行。新增用例把真实事务保持在打开状态，确认运行器已查询数据库后才提交，断言原任务无需重启且只执行一次。另一个用例回滚原事务，用 `setval` 强制下一次入队复用该 ID，模拟崩溃后的序列回退，断言旧闭包不执行，新任务只保存自己的结果。停服用例在事务尚未结束时关闭调度器，再提交事务，检查原闭包不执行，并由下一次启动恢复该排队任务。
+故障注入通过 `neo-db` 的 `testing` 开发依赖启用，并通过公开的 `Scheduler::submit` 验证行为。用例在真实事务提交或回滚后返回连接错误，检查确认提交时返回成功且 `created: true`、带去重键和不带去重键的原任务继续执行、去重不运行第二份任务，以及回滚的任务不执行。延迟提交用例把真实事务保持在打开状态，确认调度器已查询数据库且 `submit` 尚未返回后才提交，断言原任务无需重启且只执行一次。另一个用例回滚原事务，用 `setval` 强制下一次入队复用该 ID，模拟崩溃后的序列回退，断言旧闭包不执行，新任务只保存自己的结果。停服用例在事务尚未结束时关闭调度器，检查 `submit` 返回原错误，再提交事务，检查原闭包不执行，并由下一次启动恢复该排队任务。
+
+来源修改回归阻塞扫描通道，保持入队事务未提交，经 HTTP 并发修改来源后再提交事务，检查扫描请求成功且来源修改返回 `409 scan_running`。超时用例检查等待有界、返回原错误前丢弃闭包，以及事务晚到提交后，去重提交仍只返回已有 ID，不会启动第二份任务或补建运行器。
 
 保持事务打开的夹具允许第二条写连接接替客户端丢失的连接，但不修改生产连接池配置。这些用例不模拟真实网络代理断连、WAL 刷盘或数据库崩溃，而是确定性地控制事务结束与 ID 复用的时序。PostgreSQL 专用用例在 SQLite 模式下直接跳过，在 PostgreSQL 模式下默认执行，CI 无需另跑调度器单元测试。
 
