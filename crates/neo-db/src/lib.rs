@@ -362,10 +362,11 @@ pub mod tags {
 pub mod tasks {
     pub use neo_core::db::tasks::*;
     #[cfg(all(feature = "testing", feature = "postgres"))]
-    pub use neo_db_postgres::tasks::ENQUEUE_COMMIT_OUTCOME;
+    pub use neo_db_postgres::tasks::{ENQUEUE_CHECKED, ENQUEUE_COMMIT_OUTCOME, ENQUEUE_PENDING};
 
     dispatch! { tasks;
         write fn enqueue(kind: &str, dedupe_key: Option<&str>, payload: &str, queue_limit: Option<i64>, now: i64) -> Result<Enqueued, sqlx::Error>;
+        read fn enqueue_commit_status(xid: &str) -> Result<CommitStatus, sqlx::Error>;
         read fn active_id(dedupe_key: &str) -> Result<Option<i64>, sqlx::Error>;
         read fn active_state(dedupe_key: &str) -> Result<Option<String>, sqlx::Error>;
         read fn get(id: i64) -> Result<Option<TaskRow>, sqlx::Error>;

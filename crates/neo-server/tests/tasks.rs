@@ -1,6 +1,12 @@
 mod common;
 
-use std::time::Duration;
+use std::{
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::Duration,
+};
 
 use axum::http::StatusCode;
 use common::{Req, app};
@@ -176,6 +182,199 @@ async fn uncommitted_enqueue() {
     );
     scheduler.shutdown(Duration::from_secs(5)).await;
     assert_eq!(tasks::count(&test.db, None, None).await.unwrap(), 0);
+}
+
+type PendingEnqueue = oneshot::Receiver<(i64, sqlx::Transaction<'static, sqlx::Postgres>)>;
+
+fn with_pending_enqueue(
+    test: impl FnOnce(
+        PendingEnqueue,
+        Arc<tokio::sync::Notify>,
+    ) -> futures_util::future::BoxFuture<'static, ()>,
+) {
+    if !neo_db::testing::on_postgres() {
+        return;
+    }
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let (hold, held) = oneshot::channel();
+    let checked = Arc::new(tokio::sync::Notify::new());
+    tasks::ENQUEUE_PENDING.sync_scope(Mutex::new(Some(hold)), || {
+        tasks::ENQUEUE_CHECKED.sync_scope(checked.clone(), || {
+            runtime.block_on(test(held, checked));
+        });
+    });
+}
+
+async fn pending_enqueue_db() -> neo_db::testing::TestDb {
+    let mut test = neo_db::testing::open().await;
+    let Db::Postgres(pg) = &mut test.db else {
+        unreachable!()
+    };
+    // Keep the original server transaction alive while another connection
+    // replaces the client's lost connection and checks its outcome.
+    let write = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .after_connect(|conn, _| {
+            Box::pin(async move {
+                sqlx::query(
+                    "SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+                )
+                .execute(conn)
+                .await?;
+                Ok(())
+            })
+        })
+        .connect_with((*pg.write.connect_options()).clone())
+        .await
+        .unwrap();
+    pg.write.close().await;
+    pg.write = write;
+    test
+}
+
+fn counted_job(runs: Arc<AtomicUsize>, result: serde_json::Value) -> Job {
+    Box::new(move |_| {
+        async move {
+            runs.fetch_add(1, Ordering::SeqCst);
+            Ok(Some(result))
+        }
+        .boxed()
+    })
+}
+
+#[test]
+fn an_enqueue_still_in_progress_runs_once_after_commit() {
+    with_pending_enqueue(|held, checked| {
+        async move {
+            let test = pending_enqueue_db().await;
+            let scheduler = Scheduler::new(test.db.clone(), 1, 4);
+            let runs = Arc::new(AtomicUsize::new(0));
+            let error = scheduler
+                .submit(
+                    spec("transcode", Some("pending")),
+                    counted_job(runs.clone(), json!({"original": true})),
+                )
+                .await
+                .unwrap_err();
+            assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
+            let (id, tx) = held.await.unwrap();
+            tokio::time::timeout(Duration::from_secs(60), checked.notified())
+                .await
+                .expect("the runner must check before the transaction ends");
+            assert_eq!(runs.load(Ordering::SeqCst), 0);
+            assert!(scheduler.get(id).await.unwrap().is_none());
+            tx.commit().await.unwrap();
+            let done = wait_for(&scheduler, id, "done").await;
+            scheduler.shutdown(Duration::from_secs(5)).await;
+            assert_eq!(runs.load(Ordering::SeqCst), 1);
+            assert_eq!(done.result.as_deref(), Some("{\"original\":true}"));
+            assert_eq!(tasks::count(&test.db, None, None).await.unwrap(), 1);
+        }
+        .boxed()
+    });
+}
+
+#[test]
+fn an_aborted_enqueue_cannot_adopt_a_reused_task_id() {
+    with_pending_enqueue(|held, _| {
+        async move {
+            let test = pending_enqueue_db().await;
+            let scheduler = Scheduler::new(test.db.clone(), 1, 4);
+            let slot = scheduler.try_scan_slot().unwrap();
+            let old_runs = Arc::new(AtomicUsize::new(0));
+            let error = scheduler
+                .submit(
+                    enqueue_spec(Some("old")),
+                    counted_job(old_runs.clone(), json!({"job": "old"})),
+                )
+                .await
+                .unwrap_err();
+            assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
+            let (id, tx) = held.await.unwrap();
+            tx.rollback().await.unwrap();
+            let Db::Postgres(pg) = &test.db else {
+                unreachable!()
+            };
+            // Force the sequence rollback a crash can cause before commit.
+            sqlx::query("SELECT setval(pg_get_serial_sequence('tasks', 'id'), $1, false)")
+                .bind(id)
+                .execute(&pg.write)
+                .await
+                .unwrap();
+            let new_runs = Arc::new(AtomicUsize::new(0));
+            let new = scheduler
+                .submit(
+                    enqueue_spec(Some("new")),
+                    counted_job(new_runs.clone(), json!({"job": "new"})),
+                )
+                .await
+                .unwrap();
+            assert_eq!(new.id, id);
+            assert!(new.created);
+            drop(slot);
+            let done = wait_for(&scheduler, new.id, "done").await;
+            scheduler.shutdown(Duration::from_secs(5)).await;
+            assert_eq!(
+                old_runs.load(Ordering::SeqCst),
+                0,
+                "the aborted job must not run"
+            );
+            assert_eq!(new_runs.load(Ordering::SeqCst), 1);
+            assert_eq!(done.dedupe_key.as_deref(), Some("new"));
+            assert_eq!(done.result.as_deref(), Some("{\"job\":\"new\"}"));
+        }
+        .boxed()
+    });
+}
+
+#[test]
+fn shutdown_leaves_an_unresolved_enqueue_for_startup_recovery() {
+    with_pending_enqueue(|held, checked| {
+        async move {
+            let test = pending_enqueue_db().await;
+            let scheduler = Scheduler::new(test.db.clone(), 1, 4);
+            let old_runs = Arc::new(AtomicUsize::new(0));
+            let error = scheduler
+                .submit(
+                    spec("transcode", None),
+                    counted_job(old_runs.clone(), json!({"original": true})),
+                )
+                .await
+                .unwrap_err();
+            assert!(matches!(error, SubmitError::Db(sqlx::Error::Io(_))));
+            let (id, tx) = held.await.unwrap();
+            tokio::time::timeout(Duration::from_secs(60), checked.notified())
+                .await
+                .expect("the runner must check the pending transaction");
+            scheduler.shutdown(Duration::from_secs(5)).await;
+            tx.commit().await.unwrap();
+            assert_eq!(old_runs.load(Ordering::SeqCst), 0);
+            assert_eq!(scheduler.get(id).await.unwrap().unwrap().state, "queued");
+
+            let recovered_runs = Arc::new(AtomicUsize::new(0));
+            let restarted = Scheduler::new(test.db.clone(), 1, 4);
+            restarted
+                .recover(|row| {
+                    assert_eq!(row.id, id);
+                    Some((
+                        Lane::Heavy,
+                        None,
+                        counted_job(recovered_runs.clone(), json!({"recovered": true})),
+                    ))
+                })
+                .await
+                .unwrap();
+            let done = wait_for(&restarted, id, "done").await;
+            restarted.shutdown(Duration::from_secs(5)).await;
+            assert_eq!(old_runs.load(Ordering::SeqCst), 0);
+            assert_eq!(recovered_runs.load(Ordering::SeqCst), 1);
+            assert_eq!(done.result.as_deref(), Some("{\"recovered\":true}"));
+        }
+        .boxed()
+    });
 }
 
 #[tokio::test]
