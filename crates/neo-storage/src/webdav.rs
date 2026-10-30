@@ -131,6 +131,12 @@ impl Storage for WebDavStorage {
     async fn list(&self, dir: &RawPath) -> Result<Vec<Entry>, StorageError> {
         let path = self.full_path(dir)?;
         match self.client.list(&path).await {
+            Ok(entries) if dir.is_root() && entries.is_empty() => {
+                let base = if path.is_empty() { "/" } else { &path };
+                Err(StorageError::Unavailable(format!(
+                    "{base} is empty; is the WebDAV base path correct?"
+                )))
+            }
             Ok(entries) => Ok(entries.iter().map(convert).collect()),
             Err(e) => Err(self.error(dir, &e).await),
         }

@@ -1,6 +1,10 @@
-//! Scans through local and WebDAV storage, checked against a temporary
+//! Scans through local and remote storage, checked against a temporary
 //! database. Every name and file is synthetic.
 
+#[path = "../../webdav-client/tests/common/mod.rs"]
+mod fake_webdav;
+#[path = "remote_scan/mod.rs"]
+mod remote_scan;
 #[path = "webdav_scan/mod.rs"]
 mod webdav_scan;
 

@@ -1,7 +1,6 @@
 //! Failed WebDAV properties must not turn directories into missing data.
 
-#[path = "../../../webdav-client/tests/common/mod.rs"]
-mod fake;
+use super::fake_webdav as fake;
 
 use neo_db::{roots, scan, testing};
 use neo_scanner::{NoObserver, Root, ScanError, scan_root};
