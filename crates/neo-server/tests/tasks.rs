@@ -1158,20 +1158,26 @@ async fn a_failed_state_write_is_retried_until_it_succeeds() {
 async fn a_dropped_submit_still_runs_its_task() {
     let (_dir, db) = db().await;
     let scheduler = Scheduler::new(db, 1, 4);
+    let (ran, ran_rx) = oneshot::channel();
+    let job: Job = Box::new(move |ctx| {
+        async move {
+            let _ = ran.send(ctx.task_id);
+            Ok(None)
+        }
+        .boxed()
+    });
     {
-        let submit = scheduler.submit(spec("transcode", Some("k")), returns(json!(null)));
+        let submit = scheduler.submit(spec("transcode", Some("k")), job);
         tokio::pin!(submit);
         // Poll once so the work starts, then drop the caller.
         assert!(futures_util::poll!(submit.as_mut()).is_pending());
     }
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    let again = scheduler
-        .submit(spec("transcode", Some("k")), returns(json!(null)))
+    // Only the original job can report its ID; a resubmit could hide its loss.
+    let id = tokio::time::timeout(Duration::from_secs(60), ran_rx)
         .await
-        .unwrap();
-    wait_for(&scheduler, again.id, "done").await;
-    // The dropped submit created task 1, and it ran instead of being stranded.
-    assert_eq!(scheduler.get(1).await.unwrap().unwrap().state, "done");
+        .expect("the dropped submit's job did not run")
+        .expect("the dropped submit's job was discarded");
+    wait_for(&scheduler, id, "done").await;
 }
 
 #[tokio::test]
