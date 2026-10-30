@@ -65,8 +65,6 @@ tikv-jemallocator = { version = "0.7", optional = true }
 rustix.workspace = true
 
 [dev-dependencies]
-# Keep the server and database features aligned for PostgreSQL integration tests.
-neo-server = { path = ".", features = ["postgres"] }
 neo-db = { workspace = true, features = ["testing"] }
 async-trait.workspace = true
 # The fake WebDAV server of webdav-client's tests.
