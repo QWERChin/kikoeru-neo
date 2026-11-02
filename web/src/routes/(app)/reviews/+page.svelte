@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { DEFAULT_PAGE_SIZE, listReviews } from '#lib/api/index.ts';
+	import { listReviews } from '#lib/api/index.ts';
 	import LargeTitle from '#lib/components/LargeTitle.svelte';
 	import PagedWorks from '#lib/components/PagedWorks.svelte';
 
@@ -19,7 +19,7 @@
      it shows. The text is on the detail page. -->
 <PagedWorks
 	requestKey={String(pageNumber)}
-	load={() => listReviews({ page: pageNumber, page_size: DEFAULT_PAGE_SIZE })}
+	load={(pageSize) => listReviews({ page: pageNumber, page_size: pageSize })}
 	{pageNumber}
 	{pageHref}
 	errorTitle="我的评价加载失败"

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ApiError, DEFAULT_PAGE_SIZE, listCircles, listTags, listVas, listWorks } from '#lib/api/index.ts';
+	import { ApiError, listCircles, listTags, listVas, listWorks } from '#lib/api/index.ts';
 	import type { CircleCount, TagCount, VaCount } from '#lib/api/types/index.ts';
 	import Icon from '#lib/components/Icon.svelte';
 	import LargeTitle from '#lib/components/LargeTitle.svelte';
@@ -184,7 +184,7 @@
 {:else if !needsSeed(search)}
 	<PagedWorks
 		requestKey={searchStateToQuery(search)}
-		load={() => listWorks(toWorksQuery(search, DEFAULT_PAGE_SIZE))}
+		load={(pageSize) => listWorks(toWorksQuery(search, pageSize))}
 		pageNumber={search.page}
 		pageHref={(n) => searchHref('/search', { ...search, page: n })}
 		errorTitle="搜索失败"

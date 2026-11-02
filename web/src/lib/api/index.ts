@@ -31,7 +31,7 @@ import type {
 	TagMergeRequest
 } from './types';
 import type { ProxyCheckResult, ServerSettings } from './types';
-import type { PageQuery, TasksQuery, WorksQuery } from './query';
+import { DEFAULT_PAGE_SIZE, type PageQuery, type TasksQuery, type WorksQuery } from './query';
 import type { TaskWatchDeps } from '../tasks/task-watch';
 import type { Loudness, PrepareRequest, PrepareResponse, UserSettings } from './types';
 import type { Review, ReviewInput } from './types';
@@ -39,8 +39,6 @@ import type { Review, ReviewInput } from './types';
 export { ApiError } from './errors';
 export { setTokenSource, setUnauthorizedHandler } from './client';
 export { session } from '../stores/session.svelte';
-
-export const DEFAULT_PAGE_SIZE = 40;
 
 export function health(): Promise<HealthResponse> {
 	return request({ method: 'GET', path: '/health', auth: false });

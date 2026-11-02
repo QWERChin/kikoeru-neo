@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { DEFAULT_PAGE_SIZE, listFavorites } from '#lib/api/index.ts';
+	import { listFavorites } from '#lib/api/index.ts';
 	import LargeTitle from '#lib/components/LargeTitle.svelte';
 	import PagedWorks from '#lib/components/PagedWorks.svelte';
 
@@ -19,7 +19,7 @@
      heart can be tapped again to undo. -->
 <PagedWorks
 	requestKey={String(pageNumber)}
-	load={() => listFavorites({ page: pageNumber, page_size: DEFAULT_PAGE_SIZE })}
+	load={(pageSize) => listFavorites({ page: pageNumber, page_size: pageSize })}
 	{pageNumber}
 	{pageHref}
 	errorTitle="收藏加载失败"

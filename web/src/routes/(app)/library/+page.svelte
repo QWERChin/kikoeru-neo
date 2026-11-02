@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { DEFAULT_PAGE_SIZE, listWorks } from '#lib/api/index.ts';
+	import { listWorks } from '#lib/api/index.ts';
 	import LargeTitle from '#lib/components/LargeTitle.svelte';
 	import PagedWorks from '#lib/components/PagedWorks.svelte';
 	import SortControl from '#lib/components/SortControl.svelte';
@@ -47,7 +47,7 @@
 {#if !needsSeed(search)}
 	<PagedWorks
 		requestKey={searchStateToQuery(search)}
-		load={() => listWorks(toWorksQuery(search, DEFAULT_PAGE_SIZE))}
+		load={(pageSize) => listWorks(toWorksQuery(search, pageSize))}
 		pageNumber={search.page}
 		pageHref={(n) => searchHref('/library', { ...search, page: n })}
 		errorTitle="作品列表加载失败"

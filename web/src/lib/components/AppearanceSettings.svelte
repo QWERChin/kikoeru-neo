@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ACCENTS, ACCENT_LABELS, cachedAccent } from '../accent';
+	import { PAGE_SIZES } from '../api/query';
 	import type { Accent } from '../api/types';
 	import { theme } from '../stores/theme.svelte';
 	import { THEME_LABELS, THEME_PREFERENCES } from '../theme';
@@ -12,9 +13,16 @@
 	// null and "blue" look the same, so both select the blue swatch.
 	let current = $derived<Accent>(known ? (userSettings.value.accent ?? 'blue') : cachedAccent());
 
+	let pageSize = $derived(userSettings.value.page_size);
+
 	function pick(accent: Accent) {
 		if (!known || accent === current) return;
 		void userSettings.save({ ...userSettings.value, accent });
+	}
+
+	function pickPageSize(size: number) {
+		if (!known || size === pageSize) return;
+		void userSettings.save({ ...userSettings.value, page_size: size });
 	}
 </script>
 
@@ -36,6 +44,25 @@
 						onclick={() => theme.set(preference)}
 					>
 						{THEME_LABELS[preference]}
+					</button>
+				{/each}
+			</div>
+		</div>
+		<div class="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 border-b border-separator px-4 py-3">
+			<span class="flex-1">每页作品数</span>
+			<div class="flex w-full gap-1 rounded-xl bg-fill p-1 sm:w-72" role="radiogroup" aria-label="每页作品数">
+				{#each PAGE_SIZES as size (size)}
+					<button
+						type="button"
+						role="radio"
+						aria-checked={pageSize === size}
+						disabled={!known}
+						class="min-h-9 flex-1 rounded-lg text-[13px] font-semibold tabular-nums disabled:opacity-50 {pageSize === size
+							? 'bg-segment shadow-sm'
+							: 'text-secondary'}"
+						onclick={() => pickPageSize(size)}
+					>
+						{size}
 					</button>
 				{/each}
 			</div>
@@ -70,7 +97,7 @@
 		<p class="px-1 pt-2 text-[15px] text-danger" role="alert">{userSettings.error}</p>
 	{/if}
 	<p class="px-1 pt-2 text-[13px] text-secondary">
-		主题只记在这台设备上，选“跟随系统”时随系统的浅色和深色切换。强调色是按钮、链接和进度条的颜色，跟着账号走，在别的设备上登录也一样。
+		主题只记在这台设备上，选“跟随系统”时随系统的浅色和深色切换。每页作品数用在资料库、搜索、收藏、最近播放和我的评价这几个列表上。强调色是按钮、链接和进度条的颜色。每页作品数和强调色都跟着账号走，在别的设备上登录也一样。
 	</p>
 </section>
 

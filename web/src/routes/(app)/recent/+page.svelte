@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ApiError, DEFAULT_PAGE_SIZE, getWork, listHistory } from '#lib/api/index.ts';
+	import { ApiError, getWork, listHistory } from '#lib/api/index.ts';
 	import type { WorkSummary } from '#lib/api/types/index.ts';
 	import Icon from '#lib/components/Icon.svelte';
 	import LargeTitle from '#lib/components/LargeTitle.svelte';
@@ -76,7 +76,7 @@
 
 <PagedWorks
 	requestKey={String(pageNumber)}
-	load={() => listHistory({ page: pageNumber, page_size: DEFAULT_PAGE_SIZE })}
+	load={(pageSize) => listHistory({ page: pageNumber, page_size: pageSize })}
 	{pageNumber}
 	{pageHref}
 	errorTitle="最近播放加载失败"

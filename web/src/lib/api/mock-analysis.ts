@@ -24,7 +24,8 @@ const DEFAULT_SETTINGS: UserSettings = {
 	target_lufs: -16,
 	accent: null,
 	seek_back_seconds: 15,
-	seek_forward_seconds: 30
+	seek_forward_seconds: 30,
+	page_size: 40
 };
 const ACCENTS = ['blue', 'purple', 'pink', 'red', 'orange', 'green', 'teal', 'indigo'];
 let settings: UserSettings = { ...DEFAULT_SETTINGS };
@@ -123,12 +124,17 @@ function handleSettings(method: string, body: unknown): ApiResponse | null {
 	if (![back, forward].every((s) => Number.isInteger(s) && s >= 1 && s <= 99)) {
 		return errorResponse(400, 'invalid_request', '快退和快进的秒数要在 1 到 99 之间');
 	}
+	const pageSize = next.page_size ?? DEFAULT_SETTINGS.page_size;
+	if (![20, 40, 60, 100].includes(pageSize)) {
+		return errorResponse(400, 'invalid_request', '每页数量只能是 20、40、60 或 100');
+	}
 	settings = {
 		normalize_loudness: next.normalize_loudness,
 		target_lufs: target,
 		accent,
 		seek_back_seconds: back,
-		seek_forward_seconds: forward
+		seek_forward_seconds: forward,
+		page_size: pageSize
 	};
 	return { status: 200, body: { ...settings } };
 }

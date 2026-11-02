@@ -6,6 +6,10 @@ export const WORK_SORTS = ['added', 'release', 'rating', 'random'] as const;
 export type WorkSort = (typeof WORK_SORTS)[number];
 export type SortOrder = 'desc' | 'asc';
 
+/** What `UserSettings.page_size` accepts, for the works lists. */
+export const PAGE_SIZES = [20, 40, 60, 100] as const;
+export const DEFAULT_PAGE_SIZE = 40;
+
 export interface PageQuery {
 	page?: number;
 	page_size?: number;

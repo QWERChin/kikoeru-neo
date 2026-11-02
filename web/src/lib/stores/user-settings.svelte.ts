@@ -33,6 +33,17 @@ class UserSettingsStore {
 		return this.#shown?.key === session.key ? this.#shown.value : DEFAULT_USER_SETTINGS;
 	}
 
+	/**
+	 * The page size for the works lists, or null while the account's own
+	 * settings are on their way, so a list loads once at the right size.
+	 * When they cannot be read, the lists use the default.
+	 */
+	get pageSize(): number | null {
+		if (this.known) return this.value.page_size;
+		const failed = this.#error?.key === session.key && this.#error.from === 'load';
+		return failed ? DEFAULT_USER_SETTINGS.page_size : null;
+	}
+
 	get error(): string | null {
 		return this.#error?.key === session.key ? this.#error.message : null;
 	}

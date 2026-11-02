@@ -1,3 +1,4 @@
+import { DEFAULT_PAGE_SIZE } from '../api/query';
 import type { Loudness, UserSettings } from '../api/types';
 import { DEFAULT_SEEK_BACK_SECONDS, DEFAULT_SEEK_FORWARD_SECONDS } from './skip';
 
@@ -7,7 +8,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
 	target_lufs: -16,
 	accent: null,
 	seek_back_seconds: DEFAULT_SEEK_BACK_SECONDS,
-	seek_forward_seconds: DEFAULT_SEEK_FORWARD_SECONDS
+	seek_forward_seconds: DEFAULT_SEEK_FORWARD_SECONDS,
+	page_size: DEFAULT_PAGE_SIZE
 };
 
 /** The range `PUT /api/me/settings` accepts for `target_lufs`. */

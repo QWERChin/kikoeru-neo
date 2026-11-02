@@ -4,6 +4,7 @@
 	import type { Page, WorkSummary } from '../api/types';
 	import { favorites } from '../stores/favorites.svelte';
 	import { reviews } from '../stores/reviews.svelte';
+	import { userSettings } from '../stores/user-settings.svelte';
 	import Icon from './Icon.svelte';
 	import LoadError from './LoadError.svelte';
 	import WorkCard from './WorkCard.svelte';
@@ -11,7 +12,8 @@
 	interface Props {
 		/** Changes whenever the request changes; a new key fetches again. */
 		requestKey: string;
-		load: () => Promise<Page<WorkSummary>>;
+		/** Called with the account's page size once it is known. */
+		load: (pageSize: number) => Promise<Page<WorkSummary>>;
 		pageNumber: number;
 		pageHref: (n: number) => string;
 		errorTitle: string;
@@ -39,16 +41,26 @@
 	let attempt = $state(0);
 
 	let pageCount = $derived(result ? Math.max(1, Math.ceil(result.total / result.page_size)) : 1);
+	// A derived, so the list reloads only when the number itself changes.
+	let pageSize = $derived(userSettings.pageSize);
+
+	// The list waits for these, so it asks for them instead of relying on
+	// another component to have done so.
+	$effect(() => {
+		void userSettings.load();
+	});
 
 	$effect(() => {
 		void requestKey;
 		void attempt;
+		const size = pageSize;
+		if (size === null) return;
 		let stale = false;
 		loading = true;
 		error = null;
 		const mark = favorites.mark();
 		const reviewMark = reviews.mark();
-		untrack(load)
+		untrack(() => load(size))
 			.then((data) => {
 				if (stale) return;
 				favorites.reconcile(data.items, mark);

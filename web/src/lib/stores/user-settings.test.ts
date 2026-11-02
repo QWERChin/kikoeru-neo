@@ -187,6 +187,23 @@ describe('userSettings', () => {
 		expect(userSettings.value).toEqual(quieter);
 	});
 
+	it('has no page size until the settings load, so a list loads once', async () => {
+		const answer = deferred<UserSettings>();
+		api.getUserSettings.mockReturnValue(answer.promise);
+		const loading = userSettings.load();
+		expect(userSettings.pageSize).toBeNull();
+		answer.resolve(saved);
+		await loading;
+		expect(userSettings.pageSize).toBe(60);
+	});
+
+	it('gives the lists the default page size when the settings cannot be read', async () => {
+		api.getUserSettings.mockRejectedValueOnce(new ApiError(500, 'internal_error', '服务器出错了'));
+		await userSettings.load();
+		expect(userSettings.known).toBe(false);
+		expect(userSettings.pageSize).toBe(40);
+	});
+
 	it('clears the load error once a retry succeeds', async () => {
 		api.getUserSettings.mockRejectedValueOnce(new ApiError(500, 'internal_error', '服务器出错了'));
 		await userSettings.load();
