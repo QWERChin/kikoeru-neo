@@ -10,6 +10,7 @@ pub struct Settings {
     pub accent: Option<Accent>,
     pub seek_back_seconds: u32,
     pub seek_forward_seconds: u32,
+    pub page_size: u32,
 }
 
 impl Default for Settings {
@@ -20,6 +21,7 @@ impl Default for Settings {
             accent: None,
             seek_back_seconds: UserSettings::DEFAULT_SEEK_BACK,
             seek_forward_seconds: UserSettings::DEFAULT_SEEK_FORWARD,
+            page_size: UserSettings::DEFAULT_PAGE_SIZE,
         }
     }
 }

@@ -301,6 +301,7 @@ fn defaults() -> Value {
         "accent": null,
         "seek_back_seconds": 15,
         "seek_forward_seconds": 30,
+        "page_size": 40,
     })
 }
 
@@ -322,8 +323,8 @@ async fn settings_default_until_saved_and_are_per_user() {
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body, saved);
-    // A client from before `accent` and the skip seconds sends neither,
-    // which means the defaults.
+    // A client from before `accent`, the skip seconds and the page size
+    // sends none of them, which means the defaults.
     let custom = json!({"normalize_loudness": true, "target_lufs": -23.5});
     app.send(
         Req::put("/api/me/settings")
@@ -335,6 +336,7 @@ async fn settings_default_until_saved_and_are_per_user() {
     custom["accent"] = Value::Null;
     custom["seek_back_seconds"] = json!(15);
     custom["seek_forward_seconds"] = json!(30);
+    custom["page_size"] = json!(40);
     assert_eq!(app.send(request(&token)).await.1, custom);
 
     let admin = app.login("admin").await;
@@ -354,6 +356,13 @@ async fn settings_default_until_saved_and_are_per_user() {
         json!({"normalize_loudness": true, "target_lufs": -16, "seek_forward_seconds": 7.5}),
         json!({"normalize_loudness": true, "target_lufs": -16, "seek_forward_seconds": "30"}),
         json!({"normalize_loudness": true, "target_lufs": -16, "seek_forward_seconds": null}),
+        json!({"normalize_loudness": true, "target_lufs": -16, "page_size": 0}),
+        json!({"normalize_loudness": true, "target_lufs": -16, "page_size": 30}),
+        json!({"normalize_loudness": true, "target_lufs": -16, "page_size": 101}),
+        json!({"normalize_loudness": true, "target_lufs": -16, "page_size": -40}),
+        json!({"normalize_loudness": true, "target_lufs": -16, "page_size": 40.5}),
+        json!({"normalize_loudness": true, "target_lufs": -16, "page_size": "40"}),
+        json!({"normalize_loudness": true, "target_lufs": -16, "page_size": null}),
     ] {
         let (status, body) = app
             .send(Req::put("/api/me/settings").token(&token).json(bad.clone()))
@@ -393,6 +402,26 @@ async fn skip_seconds_keep_both_ends_of_the_range() {
         let mut settings = defaults();
         settings["seek_back_seconds"] = json!(back);
         settings["seek_forward_seconds"] = json!(forward);
+        let (status, body) = app
+            .send(
+                Req::put("/api/me/settings")
+                    .token(&token)
+                    .json(settings.clone()),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body, settings);
+        let (_, stored) = app.send(Req::get("/api/me/settings").token(&token)).await;
+        assert_eq!(stored, settings);
+    }
+}
+
+#[tokio::test]
+async fn every_page_size_is_kept() {
+    let (app, token) = library().await;
+    for page_size in [20, 40, 60, 100] {
+        let mut settings = defaults();
+        settings["page_size"] = json!(page_size);
         let (status, body) = app
             .send(
                 Req::put("/api/me/settings")

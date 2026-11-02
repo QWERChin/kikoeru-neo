@@ -115,6 +115,10 @@ pub struct UserSettings {
     pub seek_back_seconds: u32,
     #[serde(default = "UserSettings::default_seek_forward")]
     pub seek_forward_seconds: u32,
+    /// How many works a page of the works lists shows, one of
+    /// [`UserSettings::PAGE_SIZES`]. A `PUT` without it gets the default.
+    #[serde(default = "UserSettings::default_page_size")]
+    pub page_size: u32,
 }
 
 impl UserSettings {
@@ -122,6 +126,9 @@ impl UserSettings {
     pub const DEFAULT_SEEK_FORWARD: u32 = 30;
     /// The button icon draws the number inside the arrow, with room for two digits.
     pub const SEEK_SECONDS: std::ops::RangeInclusive<u32> = 1..=99;
+    pub const DEFAULT_PAGE_SIZE: u32 = 40;
+    /// A fixed set, so the settings page can offer them as one row of buttons.
+    pub const PAGE_SIZES: [u32; 4] = [20, 40, 60, 100];
 
     fn default_seek_back() -> u32 {
         Self::DEFAULT_SEEK_BACK
@@ -129,6 +136,10 @@ impl UserSettings {
 
     fn default_seek_forward() -> u32 {
         Self::DEFAULT_SEEK_FORWARD
+    }
+
+    fn default_page_size() -> u32 {
+        Self::DEFAULT_PAGE_SIZE
     }
 }
 

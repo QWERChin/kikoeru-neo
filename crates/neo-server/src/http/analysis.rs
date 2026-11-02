@@ -456,12 +456,18 @@ pub async fn put_settings(
             ));
         }
     }
+    if !UserSettings::PAGE_SIZES.contains(&body.page_size) {
+        return Err(HttpError::invalid_request(
+            "每页数量只能是 20、40、60 或 100",
+        ));
+    }
     let stored = settings::Settings {
         normalize_loudness: body.normalize_loudness,
         target_lufs: target,
         accent: body.accent,
         seek_back_seconds: body.seek_back_seconds,
         seek_forward_seconds: body.seek_forward_seconds,
+        page_size: body.page_size,
     };
     settings::put(state.db(), user.id, stored, now_ms()).await?;
     Ok(Json(settings_dto(stored)))
@@ -474,5 +480,6 @@ fn settings_dto(stored: settings::Settings) -> UserSettings {
         accent: stored.accent,
         seek_back_seconds: stored.seek_back_seconds,
         seek_forward_seconds: stored.seek_forward_seconds,
+        page_size: stored.page_size,
     }
 }

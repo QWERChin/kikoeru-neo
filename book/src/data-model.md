@@ -234,7 +234,8 @@ CREATE TABLE user_settings (           -- GET/PUT /api/me/settings，没有行�
   accent             TEXT,           -- 接口合同的 Accent，NULL 是默认的蓝色
   updated_at         INTEGER NOT NULL,
   seek_back_seconds    INTEGER NOT NULL DEFAULT 15,  -- 后退按钮的秒数，1 到 99
-  seek_forward_seconds INTEGER NOT NULL DEFAULT 30   -- 前进按钮的秒数，1 到 99
+  seek_forward_seconds INTEGER NOT NULL DEFAULT 30,  -- 前进按钮的秒数，1 到 99
+  page_size            INTEGER NOT NULL DEFAULT 40   -- 作品列表每页几部，20、40、60 或 100
 );
 ```
 

@@ -1046,6 +1046,7 @@ fn loudness() {
             accent: Some(Accent::Teal),
             seek_back_seconds: 10,
             seek_forward_seconds: 45,
+            page_size: 60,
         },
     );
 }

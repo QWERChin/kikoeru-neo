@@ -235,7 +235,7 @@ const TABLES: &[Table] = &[
     table("user_settings", &["user_id"], &[
         ("user_id", Int), ("normalize_loudness", Bool), ("target_lufs", Real),
         ("updated_at", Int), ("accent", Text), ("seek_back_seconds", Int),
-        ("seek_forward_seconds", Int),
+        ("seek_forward_seconds", Int), ("page_size", Int),
     ]),
     table("favorites", &["user_id", "work_id"], &[
         ("user_id", Int), ("work_id", Int), ("created_at", Int),

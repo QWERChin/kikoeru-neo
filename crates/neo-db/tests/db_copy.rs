@@ -44,8 +44,8 @@ INSERT INTO track_analysis (track_id, size, mtime, integrated_lufs, true_peak_db
 INSERT INTO users (id, name, password_hash, is_admin, token_version, created_at)
   VALUES (1, 'admin', '$argon2id$x', 1, 123456789, 1), (4, 'guest', NULL, 0, 0, 2);
 INSERT INTO user_settings (user_id, normalize_loudness, target_lufs, updated_at, accent,
-                           seek_back_seconds, seek_forward_seconds)
-  VALUES (1, 1, -18.5, 3, 'pink', 10, 45), (4, 0, -16, 4, NULL, 15, 30);
+                           seek_back_seconds, seek_forward_seconds, page_size)
+  VALUES (1, 1, -18.5, 3, 'pink', 10, 45, 100), (4, 0, -16, 4, NULL, 15, 30, 40);
 INSERT INTO favorites (user_id, work_id, created_at) VALUES (1, 1, 5), (4, 5, 6);
 INSERT INTO play_progress (user_id, work_id, track_id, position_ms, group_path, finished_at,
                            replaying, updated_at)
@@ -172,7 +172,7 @@ async fn refuses_a_source_at_another_schema_version() {
     let (to_path, to) = sqlite(dir.path(), "to.sqlite3");
     library(&from_path).await;
     let db = Db::open_sqlite(&from_path).await.unwrap();
-    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 14")
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 15")
         .execute(&db.sqlite().unwrap().write)
         .await
         .unwrap();
@@ -184,8 +184,8 @@ async fn refuses_a_source_at_another_schema_version() {
         matches!(
             err,
             CopyError::Version {
-                found: Some(13),
-                expected: 14,
+                found: Some(14),
+                expected: 15,
                 ..
             }
         ),
