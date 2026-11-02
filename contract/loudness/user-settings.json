@@ -3,5 +3,6 @@
   "target_lufs": -16,
   "accent": "teal",
   "seek_back_seconds": 10,
-  "seek_forward_seconds": 45
+  "seek_forward_seconds": 45,
+  "page_size": 60
 }

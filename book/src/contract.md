@@ -611,6 +611,7 @@ HLS 播放列表，接受 API token 或媒体 token（`?token=`），只允许 G
 | `accent` | `Accent` \| null | 界面的强调色，`null` 表示默认的蓝色，见下文 |
 | `seek_back_seconds` | number | 后退按钮一次退多少秒，1 到 99 的整数，默认 `15` |
 | `seek_forward_seconds` | number | 前进按钮一次进多少秒，1 到 99 的整数，默认 `30` |
+| `page_size` | number | 作品列表每页显示多少部，只能是 `20`、`40`、`60`、`100` 之一，默认 `40` |
 
 ### `Accent`
 
@@ -619,6 +620,8 @@ HLS 播放列表，接受 API token 或媒体 token（`?token=`），只允许 G
 ### `GET /api/me/settings` 和 `PUT /api/me/settings`
 
 需要 API token。`GET` 返回当前用户的 `UserSettings`，没有保存过时返回默认值，样本 `contract/loudness/user-settings.json`。`PUT` 的请求体是完整的 `UserSettings`，整体替换，成功返回 200 和保存后的值。`target_lufs` 超出范围或不是数字时 400 `invalid_request`。`accent` 不是上面的名字之一时同样 400 `invalid_request`。请求体里没有 `accent` 时按 `null` 处理，这样加这个字段之前的客户端仍然能保存响度设置，只是强调色回到默认。`seek_back_seconds` 或 `seek_forward_seconds` 不是 1 到 99 的整数时 400 `invalid_request`，请求体里没有它们时按默认的 15 和 30 秒处理，理由和 `accent` 相同。两个秒数跟着账号走，播放页、迷你播放条和视频控制栏的按钮都用它们，锁屏和耳机上的快退快进在系统没有指定秒数时也用它们。上限是 99，因为按钮图标里只放得下两位数。
+
+`page_size` 不是 20、40、60、100 之一时 400 `invalid_request`，请求体里没有它时按默认的 40 处理，理由和 `accent` 相同。它也跟着账号走，资料库、搜索、收藏、最近和我的评价这五个作品列表请求时都用它作 `page_size` 参数。只有四个固定档位，是为了设置页能用一排按钮选，最大的 100 也是作品列表 `page_size` 的上限。
 
 ## 评分和短评
 
