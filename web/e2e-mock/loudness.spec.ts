@@ -165,12 +165,14 @@ test('the desktop draws the waveform, phones never fetch it', async ({ page }, t
 	await expect(page.getByRole('heading', { name: 'Tr01', level: 1 })).toBeVisible();
 	const full = page.getByTestId('waveform');
 	await expect(full).toBeVisible();
-	// The waveform sits behind the slider instead of pushing it down.
+	// The waveform stands just above the slider's track, over the slider's
+	// upper half, instead of taking room of its own.
 	const scrubberBox = (await page.getByRole('slider', { name: '播放进度' }).boundingBox())!;
 	const waveBox = (await full.boundingBox())!;
 	const scrubberCentre = scrubberBox.y + scrubberBox.height / 2;
 	expect(waveBox.y).toBeLessThan(scrubberCentre);
-	expect(waveBox.y + waveBox.height).toBeGreaterThan(scrubberCentre);
+	expect(waveBox.y + waveBox.height).toBeLessThan(scrubberCentre);
+	expect(waveBox.y + waveBox.height).toBeGreaterThan(scrubberCentre - 10);
 	// The slider still does the seeking on top of the waveform.
 	const scrubber = page.getByRole('slider', { name: '播放进度' });
 	await scrubber.fill('150');
@@ -178,6 +180,13 @@ test('the desktop draws the waveform, phones never fetch it', async ({ page }, t
 	await expect
 		.poll(() => full.evaluate((el) => getComputedStyle(el).getPropertyValue('--played')))
 		.toMatch(/^(4[5-9]|5\d)(\.\d+)?%$/);
+
+	// Hovering the slider previews where a click would seek to, and leaving it clears that.
+	const hovered = () => full.evaluate((el) => getComputedStyle(el).getPropertyValue('--hover'));
+	await page.mouse.move(scrubberBox.x + scrubberBox.width * 0.75, scrubberCentre);
+	await expect.poll(hovered).toMatch(/^7[4-7](\.\d+)?%$/);
+	await page.mouse.move(scrubberBox.x, scrubberBox.y - 40);
+	await expect.poll(hovered).toBe('');
 
 	// Tr02 is unmeasured: the waveform appears once its analysis is done.
 	await page.getByRole('button', { name: '下一轨' }).click();

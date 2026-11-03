@@ -24,17 +24,30 @@
 			: null
 	);
 	let total = $derived(formatClock(player.duration));
+
+	// The slider moves the thumb's centre between half a thumb (12px) from
+	// either end, so the waveform and the pointer maths are inset by that much.
+	const THUMB_INSET_PX = 6;
+	let hover = $state<number | null>(null);
+
+	function trackHover(e: PointerEvent & { currentTarget: HTMLInputElement }) {
+		const box = e.currentTarget.getBoundingClientRect();
+		const fraction = (e.clientX - box.left - THUMB_INSET_PX) / (box.width - 2 * THUMB_INSET_PX);
+		hover = Math.min(1, Math.max(0, fraction));
+	}
 </script>
 
 {#snippet slider()}
-	<!-- The waveform sits behind the slider, which still does the seeking.
-	     It is inset by half the thumb, so its tint ends under the thumb. -->
+	<!-- The waveform stands just above the slider's track, clear of the
+	     thumb, and the slider still does the seeking. It is inset by half
+	     the thumb, so its tint ends above the thumb's centre. -->
 	<div class="relative min-w-0 flex-1">
 		{#if peaks}
 			<Waveform
 				{peaks}
 				progress={fraction}
-				class="absolute inset-x-[7px] top-1/2 hidden h-8 -translate-y-1/2 md:block"
+				{hover}
+				class="absolute inset-x-[6px] bottom-[calc(50%+6px)] hidden h-[18px] md:block"
 			/>
 		{/if}
 		<!-- Replacing the input cancels the old track's native drag gesture. -->
@@ -42,7 +55,6 @@
 			<input
 				type="range"
 				class="scrubber relative w-full"
-				class:has-wave={peaks !== null}
 				min="0"
 				max={Math.max(player.duration, 1)}
 				step="1"
@@ -50,6 +62,8 @@
 				aria-label="播放进度"
 				aria-valuetext="{formatClock(position)} / {total}"
 				style="--progress: {fraction * 100}%"
+				onpointermove={trackHover}
+				onpointerleave={() => (hover = null)}
 				oninput={(e) => (drag = { trackId: player.current?.id, value: Number(e.currentTarget.value) })}
 				onchange={(e) => {
 					// Removing a focused input can commit it while the next track starts.
@@ -107,35 +121,24 @@
 		background: var(--accent-text);
 	}
 
-	/* The waveform behind the slider shows the progress instead of the track. */
-	@media (min-width: 768px) {
-		.scrubber.has-wave::-webkit-slider-runnable-track {
-			background: transparent;
-		}
-
-		.scrubber.has-wave::-moz-range-track {
-			background: transparent;
-		}
-
-		.scrubber.has-wave::-moz-range-progress {
-			background: transparent;
-		}
-	}
-
+	/* In the text colour, so it stands out from the accent fill and the
+	   waveform's tint. The ring of background parts it from the bars above. */
 	.scrubber::-webkit-slider-thumb {
 		appearance: none;
-		width: 14px;
-		height: 14px;
-		margin-top: -5px;
+		width: 12px;
+		height: 12px;
+		margin-top: -4px;
 		border-radius: 9999px;
-		background: var(--accent-text);
+		background: var(--text);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--bg) 70%, transparent);
 	}
 
 	.scrubber::-moz-range-thumb {
-		width: 14px;
-		height: 14px;
+		width: 12px;
+		height: 12px;
 		border: none;
 		border-radius: 9999px;
-		background: var(--accent-text);
+		background: var(--text);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--bg) 70%, transparent);
 	}
 </style>

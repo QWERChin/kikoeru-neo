@@ -2,10 +2,12 @@
 export const WAVEFORM_PEAKS = 1000;
 
 /** CSS pixels per drawn bar, gap included. */
-export const BAR_PITCH_PX = 3;
+export const BAR_PITCH_PX = 4;
 
-/** The shortest bar, so silent stretches still show where the track is. */
-const MIN_BAR = 0.06;
+/** How wide a bar is drawn, in CSS pixels. Its ends are rounded. */
+export const BAR_WIDTH_PX = 2;
+
+const BAR_GAP_PX = BAR_PITCH_PX - BAR_WIDTH_PX;
 
 /**
  * Peaks from the waveform body, 0 to 1. Each byte is the largest amplitude
@@ -21,10 +23,10 @@ export function decodeWaveform(body: ArrayBuffer | Uint8Array): Float32Array | n
 	return peaks;
 }
 
-/** How many bars fit `width` CSS pixels. */
+/** How many bars fit `width` CSS pixels. The last bar needs no gap after it. */
 export function barCount(width: number, peaks = WAVEFORM_PEAKS): number {
 	if (!(width > 0)) return 0;
-	return Math.max(1, Math.min(peaks, Math.floor(width / BAR_PITCH_PX)));
+	return Math.max(1, Math.min(peaks, Math.floor((width + BAR_GAP_PX) / BAR_PITCH_PX)));
 }
 
 /**
@@ -44,17 +46,25 @@ export function foldPeaks(peaks: Float32Array, count: number): Float32Array {
 }
 
 /**
- * One SVG path for the bars, in a viewBox `count` wide and 100 high. Each
- * bar is centred vertically and leaves a third of its slot as a gap. The
- * SVG is stretched to its box, so the path only changes with the count.
+ * One SVG path for the bars, to be stroked `BAR_WIDTH_PX` wide with round
+ * caps in a viewBox of `width` by `height` CSS pixels. The bars stand on the
+ * bottom edge, centred as a group, and each starts on a whole pixel so none
+ * is drawn blurred. The loudest bar fills the height, because quiet tracks
+ * would otherwise draw a flat strip; a silent bar is a dot.
  */
-export function barsPath(bars: Float32Array): string {
-	const width = 2 / 3;
+export function barsPath(bars: Float32Array, width: number, height: number): string {
+	let loudest = 0;
+	for (const bar of bars) loudest = Math.max(loudest, bar);
+	const scale = loudest > 0 ? 1 / loudest : 0;
+	const left = Math.floor((width - (bars.length * BAR_PITCH_PX - BAR_GAP_PX)) / 2);
+	// The round caps reach half a bar width past each end of the line.
+	const room = Math.max(0, height - BAR_WIDTH_PX);
+	const bottom = height - BAR_WIDTH_PX / 2;
 	const parts: string[] = [];
 	for (let i = 0; i < bars.length; i++) {
-		const height = Math.max(MIN_BAR, Math.min(1, bars[i]!)) * 100;
-		const y = (100 - height) / 2;
-		parts.push(`M${round(i + 1 / 6)} ${round(y)}h${round(width)}v${round(height)}h-${round(width)}z`);
+		const x = left + i * BAR_PITCH_PX + BAR_WIDTH_PX / 2;
+		const length = room * Math.min(1, bars[i]! * scale);
+		parts.push(`M${round(x)} ${round(bottom - length)}V${round(bottom)}`);
 	}
 	return parts.join('');
 }

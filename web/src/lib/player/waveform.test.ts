@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BAR_PITCH_PX, WAVEFORM_PEAKS, barCount, barsPath, decodeWaveform, foldPeaks } from './waveform';
+import { BAR_PITCH_PX, BAR_WIDTH_PX, WAVEFORM_PEAKS, barCount, barsPath, decodeWaveform, foldPeaks } from './waveform';
 
 describe('decodeWaveform', () => {
 	it('maps the 1000 bytes linearly from 0 to 1', () => {
@@ -32,7 +32,10 @@ describe('drawing', () => {
 		expect(barCount(0)).toBe(0);
 		expect(barCount(Number.NaN)).toBe(0);
 		expect(barCount(1)).toBe(1);
-		expect(barCount(300)).toBe(300 / BAR_PITCH_PX);
+		// The last bar needs no gap after it.
+		const width = 75 * BAR_PITCH_PX - (BAR_PITCH_PX - BAR_WIDTH_PX);
+		expect(barCount(width)).toBe(75);
+		expect(barCount(width - 1)).toBe(74);
 		expect(barCount(10_000)).toBe(1000);
 	});
 
@@ -52,11 +55,21 @@ describe('drawing', () => {
 		expect([...bars].map((b) => Math.round(b * 10))).toEqual([2, 2, 8, 8]);
 	});
 
-	it('draws one rectangle per bar, silent bars included', () => {
-		const path = barsPath(new Float32Array([0, 1, 0.5]));
-		expect(path.match(/M/g)).toHaveLength(3);
-		// A full bar spans the whole height; a silent one keeps a sliver.
-		expect(path).toContain('M1.17 0h0.67v100');
-		expect(path).toMatch(/^M0\.17 47h0\.67v6h/);
+	it('draws one line per bar standing on the bottom, silent bars as dots', () => {
+		// Lines 1, 5 and 9 pixels in, stroked 2 wide, so each covers whole
+		// pixels; the round caps reach 1 pixel past each end.
+		expect(barsPath(new Float32Array([0, 1, 0.5]), 10, 20)).toBe('M1 19V19M5 1V19M9 10V19');
+	});
+
+	it('lets the loudest bar fill the height of a quiet track', () => {
+		expect(barsPath(new Float32Array([0.2, 0.4]), 6, 20)).toBe('M1 10V19M5 1V19');
+	});
+
+	it('centres the bars on whole pixels when the width leaves room', () => {
+		expect(barsPath(new Float32Array([1]), 11, 20)).toBe('M5 1V19');
+	});
+
+	it('draws a silent track as dots', () => {
+		expect(barsPath(new Float32Array([0, 0]), 6, 10)).toBe('M1 9V9M5 9V9');
 	});
 });
