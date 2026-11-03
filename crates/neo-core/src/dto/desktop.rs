@@ -33,3 +33,16 @@ pub enum MediaControl {
     Next,
     Previous,
 }
+
+/// What the desktop lyrics window shows. Pages send it with `lyrics_lines`
+/// whenever it changes, and the window gets it as the `lyrics-lines` event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct LyricsLines {
+    /// The line being spoken, or the last one spoken while `spoken` is false.
+    pub current: Option<String>,
+    pub spoken: bool,
+    pub next: Option<String>,
+    /// The track's title, shown when there are no lines.
+    pub title: Option<String>,
+    pub playing: bool,
+}

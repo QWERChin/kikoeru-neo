@@ -5,6 +5,7 @@ import type {
 	ImportDiscovered,
 	ImportPreview,
 	ImportResult,
+	LyricsLines,
 	MediaControl
 } from '../api/types';
 
@@ -119,7 +120,18 @@ export function shellCommands(ipc: ShellIpc) {
 		/** Shows the folder of the shell's log files in the system's file manager. */
 		openLogDir: () => ipc.invoke<null>('open_log_dir'),
 		onMediaControl: (handler: (control: MediaControl) => void) =>
-			ipc.listen<MediaControl>('media-control', handler)
+			ipc.listen<MediaControl>('media-control', handler),
+		/** Opens the desktop lyrics window, or closes it. */
+		lyricsToggle: () => ipc.invoke<null>('lyrics_toggle'),
+		lyricsLines: (lines: LyricsLines) => ipc.invoke<null>('lyrics_lines', { lines }),
+		// The rest are for the lyrics window itself.
+		lyricsNow: () => ipc.invoke<LyricsLines | null>('lyrics_now'),
+		/** A locked window lets clicks through; the tray menu unlocks it. */
+		lyricsLock: (locked: boolean) => ipc.invoke<null>('lyrics_lock', { locked }),
+		lyricsControl: (action: MediaControl) => ipc.invoke<null>('lyrics_control', { action }),
+		onLyricsLines: (handler: (lines: LyricsLines) => void) =>
+			ipc.listen<LyricsLines>('lyrics-lines', handler),
+		onLyricsLocked: (handler: (locked: boolean) => void) => ipc.listen<boolean>('lyrics-locked', handler)
 	};
 }
 

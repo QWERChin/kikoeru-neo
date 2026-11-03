@@ -54,6 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     exported.export::<Page<TaskSnapshot>>()?;
     exported.export::<DesktopState>()?;
     exported.export::<MediaControl>()?;
+    exported.export::<LyricsLines>()?;
     exported.export::<ImportDiscovered>()?;
     exported.export::<ImportPreview>()?;
     exported.export::<ImportResult>()?;

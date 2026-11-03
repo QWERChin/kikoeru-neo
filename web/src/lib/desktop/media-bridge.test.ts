@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applyControl, MediaStateSync, mediaStateOf, type PlayingSource } from './media-bridge';
+import { applyControl, lyricsOf, ShellSync, mediaStateOf, type LyricsSource, type PlayingSource } from './media-bridge';
 
 const playing: PlayingSource = {
 	active: true,
@@ -23,10 +23,51 @@ describe('mediaStateOf', () => {
 	});
 });
 
-describe('MediaStateSync', () => {
+describe('lyricsOf', () => {
+	const audio: LyricsSource = {
+		...playing,
+		current: { kind: 'audio' },
+		currentTime: 5,
+		subtitle: {
+			state: 'ready',
+			cues: [
+				{ start: 4, end: 6, text: '第一句' },
+				{ start: 8, end: 9, text: '第二句' }
+			]
+		}
+	};
+
+	it('sends the lines of the floating card with the title', () => {
+		expect(lyricsOf(audio)).toEqual({
+			current: '第一句',
+			spoken: true,
+			next: '第二句',
+			title: '01 はじまり',
+			playing: true
+		});
+	});
+
+	it('sends only the title for a video or a track without lines', () => {
+		const none = { current: null, spoken: false, next: null, title: '01 はじまり', playing: false };
+		expect(lyricsOf({ ...audio, paused: true, current: { kind: 'video' } })).toEqual(none);
+		expect(lyricsOf({ ...audio, paused: true, subtitle: { state: 'loading' } })).toEqual(none);
+	});
+
+	it('sends nothing when nothing is loaded', () => {
+		expect(lyricsOf({ ...audio, active: false })).toEqual({
+			current: null,
+			spoken: false,
+			next: null,
+			title: null,
+			playing: false
+		});
+	});
+});
+
+describe('ShellSync', () => {
 	it('sends a state only when it changes', () => {
 		const send = vi.fn(async () => null);
-		const sync = new MediaStateSync(send);
+		const sync = new ShellSync(send);
 		const state = mediaStateOf(playing);
 		sync.update(state);
 		sync.update({ ...state });
@@ -37,7 +78,7 @@ describe('MediaStateSync', () => {
 	it('sends the same state again after a failure', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const send = vi.fn().mockRejectedValueOnce('no window').mockResolvedValue(null);
-		const sync = new MediaStateSync(send);
+		const sync = new ShellSync(send);
 		const state = mediaStateOf(playing);
 		sync.update(state);
 		await vi.waitFor(() => expect(warn).toHaveBeenCalledOnce());

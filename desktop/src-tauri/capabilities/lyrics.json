@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "lyrics",
+  "description": "The bundled desktop lyrics window: it reads the lines, sends playback controls, locks itself and moves itself.",
+  "windows": ["lyrics"],
+  "permissions": [
+    "allow-lyrics-now",
+    "allow-lyrics-lock",
+    "allow-lyrics-control",
+    "allow-lyrics-toggle",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging"
+  ]
+}

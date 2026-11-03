@@ -22,6 +22,11 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             &item("previous", "上一首")?,
             &item("next", "下一首")?,
             &PredefinedMenuItem::separator(app)?,
+            &item("lyrics", "桌面歌词")?,
+            // A locked lyrics window lets every click through, so this is
+            // the only way to reach its buttons again.
+            &item("unlock-lyrics", "解锁桌面歌词")?,
+            &PredefinedMenuItem::separator(app)?,
             &item("switch", "切换模式")?,
             &item("quit", "退出")?,
         ],
@@ -34,6 +39,16 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             "toggle" => control(app, MediaControl::Toggle),
             "previous" => control(app, MediaControl::Previous),
             "next" => control(app, MediaControl::Next),
+            "lyrics" => {
+                if let Err(e) = crate::lyrics::toggle(app) {
+                    tracing::warn!(error = %e, "cannot toggle the lyrics window");
+                }
+            }
+            "unlock-lyrics" => {
+                if let Err(e) = crate::lyrics::lock(app, false) {
+                    tracing::warn!(error = %e, "cannot unlock the lyrics window");
+                }
+            }
             "switch" => {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
@@ -52,12 +67,16 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-fn control(app: &AppHandle, action: MediaControl) {
+pub(crate) fn control(app: &AppHandle, action: MediaControl) {
     let _ = app.emit("media-control", action);
 }
 
 pub fn show(app: &AppHandle) {
-    for window in app.webview_windows().into_values() {
+    // The lyrics window is already on top and must not take the focus.
+    for (label, window) in app.webview_windows() {
+        if label == crate::lyrics::LABEL {
+            continue;
+        }
         let _ = window.show();
         let _ = window.set_focus();
     }

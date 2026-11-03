@@ -20,6 +20,8 @@ if (inShell()) {
 }
 
 export const load: LayoutLoad = ({ url }) => {
-	// The bundled frontend has no backend behind it, so the picker is its only page.
-	if (desktop.kind === 'picker' && url.pathname !== '/desktop') redirect(307, '/desktop');
+	// The bundled frontend has no backend behind it, so it has only the picker
+	// and the desktop lyrics window.
+	if (desktop.kind === 'picker' && url.pathname !== '/desktop' && url.pathname !== '/desktop-lyrics')
+		redirect(307, '/desktop');
 };

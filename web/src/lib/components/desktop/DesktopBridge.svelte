@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { desktop } from '../../desktop/desktop.svelte';
-	import { applyControl, MediaStateSync, mediaStateOf } from '../../desktop/media-bridge';
+	import { applyControl, lyricsOf, ShellSync, mediaStateOf } from '../../desktop/media-bridge';
 	import { player } from '../../player/player.svelte';
 
 	// Local and remote pages report what is playing to the tray and take
@@ -29,8 +29,15 @@
 		};
 	});
 
-	const sync = new MediaStateSync(desktop.commands.mediaState);
+	const sync = new ShellSync(desktop.commands.mediaState);
 	$effect(() => {
 		if (connected) sync.update(mediaStateOf(player));
+	});
+
+	// Sent whether or not the lyrics window is open, so it has the current
+	// lines the moment it opens. They change about once a line.
+	const lyrics = new ShellSync(desktop.commands.lyricsLines);
+	$effect(() => {
+		if (connected) lyrics.update(lyricsOf(player));
 	});
 </script>

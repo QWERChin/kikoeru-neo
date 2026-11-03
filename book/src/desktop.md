@@ -106,6 +106,8 @@ impl Server {
 - **本机页面**：本机模式下由进程内后端提供的 `http://127.0.0.1:<端口>`。
 - **远程页面**：连接服务器模式下用户填的服务器地址。
 
+另外还有一个桌面歌词窗口，它也是打包的前端里的页面（`/desktop-lyrics`），标签固定为 `lyrics`，用自己的 capability `capabilities/lyrics.json`，见下面的“桌面歌词”。
+
 | 命令 | 参数 | 返回 | 谁能调 |
 |---|---|---|---|
 | `desktop_state` | 无 | `{ mode: "local" \| "server" \| null, server_url: string \| null, last_error: string \| null }`。`last_error` 是启动时保存的模式没能打开的原因，选择页显示它 | 选择页、本机页面 |
@@ -115,21 +117,28 @@ impl Server {
 | `pick_folder` | 无 | 选中的绝对路径，用户取消时是 `null`。外壳弹出系统的选择文件夹对话框。页面拿到路径后调用 `POST /api/admin/roots` 添加本机媒体库，列出和删除也走媒体库管理接口 | 本机页面 |
 | `media_state` | `{ title: string \| null, artist: string \| null, playing: boolean }` | 无。外壳用它更新托盘提示和系统的“正在播放” | 本机页面、远程页面 |
 | `open_log_dir` | 无 | 无。外壳用系统的文件管理器打开日志文件夹，还不存在时先建好，见“日志” | 选择页、本机页面 |
+| `lyrics_toggle` | 无 | 无。打开桌面歌词窗口，已经开着就关掉 | 本机页面、远程页面、歌词窗口 |
+| `lyrics_lines` | `{ lines: LyricsLines }`，即 `{ current, spoken, next, title, playing }`，前三项是悬浮字幕卡片的两行，`title` 是曲目名 | 无。外壳记下最新的一份，转给歌词窗口 | 本机页面、远程页面 |
+| `lyrics_now` | 无 | 最新的 `LyricsLines`，还没有页面发过时是 `null` | 歌词窗口 |
+| `lyrics_lock` | `{ locked: boolean }` | 无。锁定后鼠标穿过歌词窗口 | 歌词窗口 |
+| `lyrics_control` | `{ action: MediaControl }` | 无。外壳把它当作 `media-control` 事件发出，和托盘菜单一样 | 歌词窗口 |
 | `import_discover` | 无 | 外壳弹出选择文件夹对话框，返回 `ImportDiscovered`：`{ pick: string, source: ImportSource }`，用户取消时是 `null`。`ImportSource` 是找到的旧数据库、封面目录和旧 `config.json`，每项是 `{ path, origin }`，`origin` 为 `"given"`、`"default"`、`"guessed"` 或 `"config:<键>"`，见[迁移](migration.md)的“找旧数据”，另有旧 `config.json` 里写的版本 `version` | 本机页面 |
 | `import_preview` | `{ pick: string, accept_guessed: boolean, recover_journal: boolean }` | `ImportPreview`：`source`，`counts`（旧库的作品数、用户数，会合并的收藏、review、进度条数，以及有用户数据的作品数），`users: { name, is_admin }[]`，`old_roots`（旧配置里的媒体库，`addable` 表示是找到了位置的本地文件夹，可以放进 `add_roots`，`sample` 是抽查结果 `{ checked, found }`），`issues: { at, reason }[]`，`refusal: string[] \| null`。`refusal` 不为空时不能导入 | 本机页面 |
 | `import_run` | `{ pick: string, accept_guessed: boolean, recover_journal: boolean, to_me: string[], add_roots: string[] }` | `ImportResult`：`{ works, favorites, reviews, progress, progress_kept, waiting, users_created: string[], roots_added: RootStatus[] }`。`roots_added` 是经媒体库管理接口新加的媒体库，还没扫描过 | 本机页面 |
 
 | 事件 | 内容 | 发给 |
 |---|---|---|
-| `media-control` | `"play"`、`"pause"`、`"toggle"`、`"next"`、`"previous"` 之一，来自托盘菜单和系统媒体键 | 当前窗口 |
+| `media-control` | `"play"`、`"pause"`、`"toggle"`、`"next"`、`"previous"` 之一，来自托盘菜单、系统媒体键和歌词窗口的按钮 | 所有窗口，只有本机页面和远程页面在听 |
+| `lyrics-lines` | `LyricsLines` | 歌词窗口 |
+| `lyrics-locked` | `boolean` | 歌词窗口 |
 
 几条约定：
 
 - 命令失败时 `invoke` 抛出一个中文的错误字符串，页面直接显示它。三个导入命令例外：它们抛出 `ImportFailure`，即 `{ code, message }`。`code` 是[接口合同](contract.md)“导入的错误码”里的一个，页面按它写中文提示，外壳自己的错误（比如没先选文件夹、已经不在本机模式）是 `other`。`message` 是完整的原因，导入库给的部分是英文，页面放在提示下面。`import_run` 在 `refusal` 不为空时以 `would_refuse` 失败，`message` 每行一条理由。
-- 模式和媒体控制的类型定义在 `neo-core::dto`（`DesktopState`、`DesktopMode`、`MediaControl`），外壳直接用它们，前端用 `neo-typegen` 生成的 TypeScript 类型，和 API 类型一样不手写。导入命令的类型也在 `neo-core::dto`（`ImportDiscovered`、`ImportPreview`、`ImportResult`、`ImportFailure` 和它们用到的类型），外壳把导入库的报告转成它们，只留页面要显示的部分。完整的报告仍然是 `import-report.json` 的结构，只在命令行的 `--json` 里输出。
+- 模式、媒体控制和歌词的类型定义在 `neo-core::dto`（`DesktopState`、`DesktopMode`、`MediaControl`、`LyricsLines`），外壳直接用它们，前端用 `neo-typegen` 生成的 TypeScript 类型，和 API 类型一样不手写。导入命令的类型也在 `neo-core::dto`（`ImportDiscovered`、`ImportPreview`、`ImportResult`、`ImportFailure` 和它们用到的类型），外壳把导入库的报告转成它们，只留页面要显示的部分。完整的报告仍然是 `import-report.json` 的结构，只在命令行的 `--json` 里输出。
 - `use_local` 第一次调用时建本机管理员：随机密码存进系统钥匙串，然后启动后端，签发会话 token，在页面加载前写进 `localStorage` 的 `kikoeru-neo.token`（前端读 token 的同一个键）。初始化脚本先比对 `location.origin`，只在本机后端的页面里写，跳到别的地址时不会带过去。以后每次启动都签一个新的。外壳运行期间每天再签一个新的写进页面的 `localStorage`，初始化脚本只在已存的 token 比自己的更早过期时才覆盖，所以刷新页面不会换回旧 token。前端在本机模式下收到 401 时，先重新读一次 `localStorage` 里的 token，和内存里的不同就换上重试，相同才去登录页。
 - `use_server` 只接受 `http` 和 `https` 地址，先请求一次 `/api/health` 确认是 kikoeru-neo 服务器再保存。这个请求被重定向时，只接受同一主机（比如从 http 换成 https），保存和固定的是重定向后的地址。启动时也先这样检查一次保存的服务器，连不上就回到选择页并给出原因。远程页面自己登录，外壳不给它注入 token。
-- 远程页面只能调 `media_state`、`switch_mode` 和拖动自己的窗口，拿不到文件系统、对话框、执行命令和其他命令。`switch_mode` 最多让服务器把窗口送回选择页，读不到也改不了本机的任何东西，而连错服务器或者忘了密码的用户停在登录页上，需要一个不靠托盘菜单的出口。
+- 远程页面只能调 `media_state`、`switch_mode`、`lyrics_toggle`、`lyrics_lines` 和拖动自己的窗口，拿不到文件系统、对话框、执行命令和其他命令。`switch_mode` 最多让服务器把窗口送回选择页，读不到也改不了本机的任何东西，而连错服务器或者忘了密码的用户停在登录页上，需要一个不靠托盘菜单的出口。
 - macOS 上窗口用 Tauri 的 Overlay 标题栏并隐藏标题，页面一直画到窗口顶边，红绿灯浮在侧栏上，和系统自带的应用一样。外壳在每个页面加载前设 `window.__KIKOERU_NEO_TITLE_BAR__ = 'overlay'`，页面据此留出标题栏的高度。页面盖住了真正的标题栏，所以拖动窗口和双击缩放要靠页面上的 `data-tauri-drag-region`，三类页面都有 `core:window:allow-start-dragging` 和 `core:window:allow-internal-toggle-maximize` 这两个权限。Windows 和 Linux 保留系统标题栏，不设这个变量。
 - 窗口不会离开它打开时的来源：选择页只留在打包的页面里，本机页面只留在本机后端的那个端口，远程页面只留在那个服务器。跳到别的来源的导航会被拦下，所以页面没法把窗口带到另一个仍然有权限的来源。本机页面和远程页面的 capability 只写当次打开的那个窗口的标签，标签不会重复使用。Tauri 不会撤销已经加上的 capability，如果写成所有 `main-*` 窗口，之后在同一来源打开的远程窗口（比如服务器地址恰好是之前本机后端用过的端口）也会拿到本机页面的命令。
 - 模式和服务器地址存在系统的应用配置目录下的 `desktop.json`，不和数据目录放在一起，因为连接服务器模式没有数据目录。
@@ -150,6 +159,7 @@ impl Server {
 - **远程页面**：和浏览器里一样自己登录。登录页的表单下面写着当前连接的服务器，并有“切换模式”，所以连错了服务器不用登录就能回到选择页。设置页的“桌面应用”写着模式和当前服务器，也有“切换模式”。两处共用 `SwitchModeButton`，确认后调 `switch_mode`。
 - **macOS 标题栏**：`overlayTitleBar()` 读外壳设的变量，为真时根布局给 `<html>` 加上 `data-title-bar="overlay"`，CSS 变量 `--title-bar-h` 从 0 变成 40px，并在窗口顶部放一条这么高的拖动条。系统标题栏的高度随 macOS 版本变化，所以外壳用 `traffic_light_position` 把红绿灯固定在这 40px 里，而不是假定标题栏一定是 28px。宽窗口里侧栏的背景延伸到顶边，可以滚动的部分从标题栏下面开始，主栏也从标题栏下面开始，拖动条是透明的。模态对话框打开时页面的其他部分都不响应鼠标，所以每个对话框里也放了一条同样的拖动条（`TitleBarDrag`）。窄窗口里整页往下推，拖动条用页面背景色，滚上去的内容不会露在红绿灯后面。播放页、收藏提示和悬浮视频小窗把 `--title-bar-h` 和 `safe-area-inset-top` 取大的那个。只认外壳的变量而不认 macOS 的 User-Agent，是因为旧版外壳还有系统标题栏，不该多留空白。反过来，新版外壳连到还没升级前端的服务器时，页面没有留空，红绿灯会压在搜索框上，也拖不动窗口，所以服务器和桌面版要一起升级。
 - **托盘和媒体键**：本机页面和远程页面在播放器的轨道、社团或播放状态变化时调 `media_state`，内容和 Media Session 一样，没变时不重复发。收到 `media-control` 事件时对播放器执行同名的操作。系统媒体键继续走页面的 Media Session。
+- **桌面歌词**：本机页面和远程页面在曲目、播放状态或当前这句字幕变化时调 `lyrics_lines`，内容和悬浮字幕卡片的两行相同，没变时不重复发。歌词窗口没开时也发，所以它一打开就有当前的字幕。悬浮字幕卡片右上角的按钮调 `lyrics_toggle`，托盘菜单的“桌面歌词”也一样。
 - **续签的 token**：本机页面收到 401 时先读一次 `localStorage` 里的 token，和发出请求用的不同就换上，再把这个请求重发一次，任务进度流也一样。还是 401，或者存的就是失败的那个，才照常清除登录状态去登录页。换上续签的 token 不算换账号，所以播放不会停。
 
 ## 日志
@@ -172,6 +182,14 @@ macOS 和 Windows 的安装包由 GitHub Actions 的 `Desktop` 工作流（`.git
 - 每个平台构建完都跑一次冒烟测试：直接运行 `.app` 里的程序，Windows 上先静默安装再运行装好的程序，参数是 `--smoke <报告文件> [<媒体库>]`。它不开窗口，运行打包的 `ffmpeg -version` 和 `ffprobe -version`，用它们启动进程内后端，再请求 `/api/health` 和首页。给了媒体库时还会扫描它并准备每条轨道，见[测试与验证](testing.md)的“桌面版验证”。结果写进报告文件，退出码表示成败。
 安装包使用的签名配置、获取方法与自动更新限制见[桌面应用指南](https://github.com/QWERChin/kikoeru-neo/blob/main/docs/zh-CN/desktop.md)。工作流产物不等同于已发布到 Releases 的安装包。
 
+## 桌面歌词
+
+桌面歌词是一个透明、无边框、永远置顶、不在任务栏出现的窗口，宽 960、高 160 逻辑像素，打开时放在主屏幕水平居中、离底边 120 像素的地方，避开 Windows 任务栏和 macOS 的程序坞。窗口里只有两行带深色描边的字：上面一行是当前这句，左对齐，颜色可以换；下面一行是下一句，右对齐。两句之间上面一行留着刚说完的那句并变淡，没有字幕时显示曲目名。
+
+鼠标移上去时窗口出现半透明的底色和一排按钮：上一轨、播放或暂停、下一轨、缩小和放大字号、换颜色、锁定、关闭。按住文字可以拖动窗口。字号（28 到 52 像素，第二行是四分之三）和颜色存在这个窗口自己的 `localStorage` 里，键是 `kikoeru-neo.desktop-lyrics`。锁定调 `lyrics_lock`，外壳对窗口设 `set_ignore_cursor_events`，之后点击会穿过歌词落到下面的窗口上，所以锁定的窗口没法再点，只能用托盘菜单的“解锁桌面歌词”解锁。关闭会销毁窗口，下次打开时是未锁定的。切换模式时外壳关掉所有其他窗口，歌词窗口也一起关掉。
+
+透明窗口在 macOS 上要用 WKWebView 的私有接口，所以 `tauri.conf.json` 设了 `macOSPrivateApi`，`tauri` crate 开了 `macos-private-api`。这样的应用不能上架 Mac App Store，项目本来也不上架。歌词窗口只拿到 `capabilities/lyrics.json` 里列出的权限：读字幕、锁定、发播放控制、开关自己、拖动自己和收事件，没有远程地址，所以服务器的页面拿不到这些权限。
+
 ## 要在每个平台验证的事
 
 能自动做的检查在 `Desktop` 工作流里，要手动做的列在[测试与验证](testing.md)的“桌面版验证”。下面是还要确认的行为。
@@ -182,6 +200,7 @@ macOS 和 Windows 的安装包由 GitHub Actions 的 `Desktop` 工作流（`.git
 - 视频播放需要验证：原生 HLS 还是 hls.js、全屏、画中画、JASSUB 的 Web Worker 和 WebAssembly 在 WebView 里能否运行。
 - 页面的内容安全策略（`vite.config.ts` 生成的 meta）不拦 WebView 里的东西。Windows 的 WebView2 由 `Desktop` 工作流的 WebDriver 测试自动检查。Linux WebKitGTK 有单独的本地 WebDriver 运行方式，不在该工作流中。测试要求：选择页、本机模式和连接服务器模式的资料库、播放页、四种格式的播放和 ass 字幕上任何一次 CSP 报错都让测试失败。macOS 的 WKWebView 没有 tauri-driver，要在真机上打开开发者工具，按同样的步骤看控制台里有没有 CSP 报错。
 - 本机模式下关闭窗口、退出应用、系统休眠时，进行中的转码任务和进度上报的表现。
+- 桌面歌词窗口的背景真的透明（Linux 要有合成器），锁定后点击能穿过去，托盘菜单能解锁，拖动和全屏应用上方的显示正常。
 - 日志文件写进了[桌面应用指南](https://github.com/QWERChin/kikoeru-neo/blob/main/docs/zh-CN/desktop.md)列出的文件夹，“打开日志文件夹”在访达、资源管理器和 Linux 的文件管理器里打开的是这个文件夹。
 - Windows 上 neo-media 和 Unix 有三处不同，要在真机上确认：
   - 缓存盘的剩余空间还没有测量，`cache.min_free_bytes` 的检查跳过，只靠 `cache.max_bytes` 限制缓存大小。

@@ -50,6 +50,10 @@ Closing the window hides it while playback continues. Quit (“退出”) in the
 
 Switch mode (“切换模式”) in Settings returns to mode selection. If local mode unexpectedly shows a login page, quit through the tray and reopen the application so the shell issues fresh login credentials. Do not try to guess the local account's random password.
 
+## Desktop lyrics
+
+While an audio track with subtitles plays, the button at the top right of the floating subtitle card, or “桌面歌词” in the tray menu, opens an always-on-top lyrics window that stays visible over other applications. Hovering over the lyrics shows buttons for changing track, text size and colour, and for locking the window; drag the text to move it. A locked window lets clicks through, and “解锁桌面歌词” in the tray menu unlocks it. The same button or tray item closes the window.
+
 ## Data and log locations
 
 These are the application's standard paths. Environment variables refer to the current user's system directories.

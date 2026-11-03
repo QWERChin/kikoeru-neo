@@ -2,7 +2,7 @@ mod desktop;
 mod import;
 mod number;
 
-pub use desktop::{DesktopMode, DesktopState, MediaControl};
+pub use desktop::{DesktopMode, DesktopState, LyricsLines, MediaControl};
 pub use import::{
     ImportCounts, ImportDiscovered, ImportErrorCode, ImportFailure, ImportIssue, ImportOldRoot,
     ImportPath, ImportPreview, ImportResult, ImportSample, ImportSource, ImportUser,

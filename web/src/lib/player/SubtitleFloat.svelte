@@ -1,7 +1,8 @@
 <script lang="ts">
 	import Icon from '../components/Icon.svelte';
 	import { player } from './player.svelte';
-	import { inShell } from '../desktop/shell';
+	import { desktop } from '../desktop/desktop.svelte';
+	import { inShell, shellErrorText } from '../desktop/shell';
 	import { floatLines, positionAfterDrag, subtitleFloat } from './subtitle-float.svelte';
 	import { subtitlePip } from './subtitle-pip.svelte';
 
@@ -20,8 +21,15 @@
 		subtitleFloat.on && !subtitlePip.open && player.current?.kind === 'audio' && cues.length > 0
 	);
 	// The desktop app's WebView may have the API too, but the app gets its own
-	// window instead.
+	// lyrics window instead.
 	const canPip = subtitlePip.supported && !inShell();
+	let canLyrics = $derived(desktop.kind === 'local' || desktop.kind === 'remote');
+	let lyricsError = $state<string | null>(null);
+
+	function toggleLyrics() {
+		lyricsError = null;
+		desktop.commands.lyricsToggle().catch((e: unknown) => (lyricsError = shellErrorText(e)));
+	}
 	let lines = $derived(floatLines(cues, player.currentTime));
 	let placement = $derived.by(() => {
 		const { x, y } = subtitleFloat.position;
@@ -67,7 +75,7 @@
 			bind:this={card}
 			{@attach endDragOnRemove}
 			class="card"
-			class:two-buttons={canPip}
+			class:two-buttons={canPip || canLyrics}
 			class:dragging={subtitleFloat.drag !== null}
 			style={placement}
 			role="region"
@@ -82,10 +90,14 @@
 			<p class="current" class:faded={!lines.spoken} data-testid="float-current">
 				{lines.current ?? ''}
 			</p>
-			<p class="next" data-testid="float-next">{lines.next ?? ''}</p>
+			<p class="next" data-testid="float-next">{lyricsError ?? lines.next ?? ''}</p>
 			<div class="buttons">
 				{#if canPip}
 					<button type="button" aria-label="在画中画窗口显示字幕" onclick={() => subtitlePip.toggle()}>
+						<Icon name="pip" size={16} />
+					</button>
+				{:else if canLyrics}
+					<button type="button" aria-label="桌面歌词" onclick={toggleLyrics}>
 						<Icon name="pip" size={16} />
 					</button>
 				{/if}

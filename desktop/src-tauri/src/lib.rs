@@ -7,6 +7,7 @@ mod config;
 mod import;
 mod local;
 mod logs;
+mod lyrics;
 mod roots;
 mod smoke;
 #[cfg(test)]
@@ -223,6 +224,8 @@ async fn open_local(app: &AppHandle) -> Result<(), String> {
             "allow-import-preview",
             "allow-import-run",
             "allow-media-state",
+            "allow-lyrics-toggle",
+            "allow-lyrics-lines",
             "allow-open-log-dir",
             "core:event:allow-listen",
             "core:event:allow-unlisten",
@@ -244,8 +247,8 @@ async fn open_local(app: &AppHandle) -> Result<(), String> {
 
 fn open_server(app: &AppHandle, url: url::Url) -> Result<(), String> {
     let origin = url.origin().ascii_serialization();
-    // A remote page gets the media state, moving its own window and going
-    // back to the picker, and nothing else. Its login page is where a user
+    // A remote page gets the media state, the desktop lyrics, moving its own
+    // window and going back to the picker, and nothing else. Its login page is where a user
     // connected to the wrong server looks for the way out.
     let label = next_label(app);
     allow_page(
@@ -255,6 +258,8 @@ fn open_server(app: &AppHandle, url: url::Url) -> Result<(), String> {
         &[
             "allow-switch-mode",
             "allow-media-state",
+            "allow-lyrics-toggle",
+            "allow-lyrics-lines",
             "core:event:allow-listen",
             "core:event:allow-unlisten",
             WINDOW_DRAG[0],
@@ -708,6 +713,11 @@ pub fn run() {
             import_run,
             media_state,
             open_log_dir,
+            lyrics::lyrics_toggle,
+            lyrics::lyrics_lines,
+            lyrics::lyrics_now,
+            lyrics::lyrics_lock,
+            lyrics::lyrics_control,
         ])
         .setup(|app| {
             // The log folder is known only once the app exists, so the few
@@ -726,6 +736,7 @@ pub fn run() {
                 windows: AtomicU64::new(0),
                 web,
             });
+            app.manage(lyrics::Lyrics::default());
             tray::create(app.handle())?;
             let handle = app.handle().clone();
             tauri::async_runtime::block_on(open_saved(&handle)).map_err(anyhow::Error::msg)?;
@@ -795,6 +806,16 @@ mod tests {
         for permission in WINDOW_DRAG {
             assert!(granted.iter().any(|p| p == permission), "{permission}");
         }
+    }
+
+    #[test]
+    fn only_the_bundled_lyrics_window_gets_the_lyrics_capability() {
+        let lyrics: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/lyrics.json")).unwrap();
+        assert_eq!(lyrics["windows"], serde_json::json!([lyrics::LABEL]));
+        // No remote URLs, so a server's page loaded in some window cannot
+        // lock the window or read the lines.
+        assert!(lyrics.get("remote").is_none());
     }
 
     #[test]

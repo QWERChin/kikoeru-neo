@@ -37,12 +37,22 @@ const LOCAL_COMMANDS = [
 	'import_preview',
 	'import_run',
 	'media_state',
+	'lyrics_toggle',
+	'lyrics_lines',
 	'open_log_dir',
 	'plugin:event|listen',
 	'plugin:event|unlisten',
 	...WINDOW_DRAG
 ];
-const REMOTE_COMMANDS = ['switch_mode', 'media_state', 'plugin:event|listen', 'plugin:event|unlisten', ...WINDOW_DRAG];
+const REMOTE_COMMANDS = [
+	'switch_mode',
+	'media_state',
+	'lyrics_toggle',
+	'lyrics_lines',
+	'plugin:event|listen',
+	'plugin:event|unlisten',
+	...WINDOW_DRAG
+];
 
 export async function stubShell(page: Page, stub: ShellStub) {
 	const allowed = { picker: PICKER_COMMANDS, local: LOCAL_COMMANDS, remote: REMOTE_COMMANDS }[stub.kind];

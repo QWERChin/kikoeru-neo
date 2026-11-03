@@ -13,6 +13,11 @@ fn main() {
             "import_run",
             "media_state",
             "open_log_dir",
+            "lyrics_toggle",
+            "lyrics_lines",
+            "lyrics_now",
+            "lyrics_lock",
+            "lyrics_control",
         ]),
     ))
     .expect("tauri build configuration");

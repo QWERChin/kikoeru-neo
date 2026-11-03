@@ -229,6 +229,28 @@ test('a remote page signs in itself, reports playback and takes the tray control
 		.toEqual({ title: 'Tr02', artist: '示例社团', playing: false });
 });
 
+test('a local page sends the lines to the desktop lyrics window and opens it', async ({ page }) => {
+	await stubShell(page, localStub());
+	await page.goto('/works/12');
+	await page.getByRole('list', { name: '曲目' }).getByRole('button', { name: /^Tr01\.mp3/ }).click();
+	await expect
+		.poll(async () => (await commandCalls(page, 'lyrics_lines')).at(-1))
+		.toEqual({
+			lines: {
+				current: '这是模拟数据里的字幕。（第 1 句）',
+				spoken: true,
+				next: '当前播放的这一行会高亮。（第 2 句）',
+				title: 'Tr01',
+				playing: true
+			}
+		});
+	// The shell's window takes the place of the browser's picture-in-picture.
+	const card = page.getByRole('region', { name: '悬浮字幕' });
+	await expect(card.getByRole('button', { name: '在画中画窗口显示字幕' })).toHaveCount(0);
+	await card.getByRole('button', { name: '桌面歌词' }).click();
+	expect(await commandCalls(page, 'lyrics_toggle')).toEqual([{}]);
+});
+
 test('a browser shows none of the desktop UI', async ({ page }, testInfo) => {
 	await page.goto('/desktop');
 	await expect(page).toHaveURL(/\/login$/);
