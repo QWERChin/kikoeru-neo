@@ -23,6 +23,10 @@ const BOTTOM_GAP: f64 = 120.0;
 #[derive(Default)]
 pub struct Lyrics {
     lines: Mutex<Option<LyricsLines>>,
+    /// Held from looking the window up until it is created or destroyed.
+    /// Tauri registers the label only once the window exists, so two quick
+    /// toggles could otherwise each create one.
+    toggling: Mutex<()>,
 }
 
 fn open<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
@@ -63,6 +67,8 @@ pub fn forget<R: Runtime>(app: &AppHandle<R>) {
 
 /// Opens the window, or closes it when it is open.
 pub fn toggle<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let lyrics = app.state::<Lyrics>();
+    let _toggling = lyrics.toggling.lock().expect("lyrics mutex poisoned");
     match app.get_webview_window(LABEL) {
         Some(window) => window
             .destroy()
