@@ -28,7 +28,7 @@ describe('decodeWaveform', () => {
 });
 
 describe('drawing', () => {
-	it('fits one bar per few pixels, never more bars than peaks', () => {
+	it('fits one bar per few pixels', () => {
 		expect(barCount(0)).toBe(0);
 		expect(barCount(Number.NaN)).toBe(0);
 		expect(barCount(1)).toBe(1);
@@ -36,7 +36,15 @@ describe('drawing', () => {
 		const width = 75 * BAR_PITCH_PX - (BAR_PITCH_PX - BAR_WIDTH_PX);
 		expect(barCount(width)).toBe(75);
 		expect(barCount(width - 1)).toBe(74);
-		expect(barCount(10_000)).toBe(1000);
+	});
+
+	it('keeps a peak at its time on a box wider than a bar per peak', () => {
+		const peaks = new Float32Array(WAVEFORM_PEAKS);
+		peaks[250] = 1;
+		const width = 6000;
+		const path = barsPath(foldPeaks(peaks, barCount(width)), width, 20);
+		const x = Number(/M([\d.]+) 1V19/.exec(path)![1]);
+		expect(x / width).toBeCloseTo(0.25, 2);
 	});
 
 	it('keeps the loudest peak of each bar', () => {

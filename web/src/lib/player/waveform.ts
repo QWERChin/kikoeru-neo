@@ -23,10 +23,14 @@ export function decodeWaveform(body: ArrayBuffer | Uint8Array): Float32Array | n
 	return peaks;
 }
 
-/** How many bars fit `width` CSS pixels. The last bar needs no gap after it. */
-export function barCount(width: number, peaks = WAVEFORM_PEAKS): number {
+/**
+ * How many bars fit `width` CSS pixels. The last bar needs no gap after it.
+ * A box wider than a bar per peak gets more bars than peaks (`foldPeaks`
+ * repeats them), so the bars still span the slider and stay at their time.
+ */
+export function barCount(width: number): number {
 	if (!(width > 0)) return 0;
-	return Math.max(1, Math.min(peaks, Math.floor((width + BAR_GAP_PX) / BAR_PITCH_PX)));
+	return Math.max(1, Math.floor((width + BAR_GAP_PX) / BAR_PITCH_PX));
 }
 
 /**

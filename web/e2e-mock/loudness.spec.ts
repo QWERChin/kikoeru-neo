@@ -177,16 +177,22 @@ test('the desktop draws the waveform, phones never fetch it', async ({ page }, t
 	const scrubber = page.getByRole('slider', { name: '播放进度' });
 	await scrubber.fill('150');
 	await expect.poll(async () => Number(await scrubber.inputValue())).toBeGreaterThanOrEqual(150);
-	await expect
-		.poll(() => full.evaluate((el) => getComputedStyle(el).getPropertyValue('--played')))
-		.toMatch(/^(4[5-9]|5\d)(\.\d+)?%$/);
+	const layers = () =>
+		full.evaluate((el) => {
+			const style = getComputedStyle(el);
+			return `${style.getPropertyValue('--tint')} ${style.getPropertyValue('--preview')}`.trim();
+		});
+	const halfway = '(4[5-9]|5\\d)(\\.\\d+)?%';
+	await expect.poll(layers).toMatch(new RegExp(`^${halfway}$`));
 
-	// Hovering the slider previews where a click would seek to, and leaving it clears that.
-	const hovered = () => full.evaluate((el) => getComputedStyle(el).getPropertyValue('--hover'));
+	// Hovering the slider fades the bars between the playhead and the
+	// pointer, on either side, and leaving it clears that.
 	await page.mouse.move(scrubberBox.x + scrubberBox.width * 0.75, scrubberCentre);
-	await expect.poll(hovered).toMatch(/^7[4-7](\.\d+)?%$/);
+	await expect.poll(layers).toMatch(new RegExp(`^${halfway} 7[4-7](\\.\\d+)?%$`));
+	await page.mouse.move(scrubberBox.x + scrubberBox.width * 0.25, scrubberCentre);
+	await expect.poll(layers).toMatch(new RegExp(`^2[3-6](\\.\\d+)?% ${halfway}$`));
 	await page.mouse.move(scrubberBox.x, scrubberBox.y - 40);
-	await expect.poll(hovered).toBe('');
+	await expect.poll(layers).toMatch(new RegExp(`^${halfway}$`));
 
 	// Tr02 is unmeasured: the waveform appears once its analysis is done.
 	await page.getByRole('button', { name: '下一轨' }).click();

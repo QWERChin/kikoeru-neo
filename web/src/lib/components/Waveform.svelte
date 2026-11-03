@@ -18,13 +18,22 @@
 	// The path depends on the box size only, so playback never rebuilds it.
 	// Progress moves a clip on the tinted copy, which costs a repaint of
 	// the clipped layer and no layout (book: frontend.md, the progress bar).
-	let count = $derived(barCount(width, peaks.length));
+	let count = $derived(barCount(width));
 	let path = $derived(count > 0 && height > 0 ? barsPath(foldPeaks(peaks, count), width, height) : '');
-	let played = $derived(percent(progress));
-	let hovered = $derived(hover === null ? null : percent(hover));
+	// The faint bars run between the playhead and the pointer, whichever
+	// side the pointer is on, so their edge at the pointer shows where a
+	// click would seek to.
+	let played = $derived(clamp(progress));
+	let pointer = $derived(hover === null ? null : clamp(hover));
+	let tint = $derived(percent(pointer === null ? played : Math.min(played, pointer)));
+	let preview = $derived(pointer === null ? null : percent(Math.max(played, pointer)));
+
+	function clamp(fraction: number): number {
+		return Math.min(1, Math.max(0, fraction));
+	}
 
 	function percent(fraction: number): string {
-		return `${Math.min(1, Math.max(0, fraction)) * 100}%`;
+		return `${fraction * 100}%`;
 	}
 </script>
 
@@ -32,8 +41,8 @@
 	class="wave {className}"
 	bind:clientWidth={width}
 	bind:clientHeight={height}
-	style:--played={played}
-	style:--hover={hovered}
+	style:--tint={tint}
+	style:--preview={preview}
 	aria-hidden="true"
 	data-testid="waveform"
 	data-bars={count}
@@ -43,7 +52,7 @@
 		<svg class="layer base" viewBox="0 0 {width} {height}">
 			<path d={path} stroke-width={BAR_WIDTH_PX} />
 		</svg>
-		{#if hovered}
+		{#if preview}
 			<svg class="layer preview" viewBox="0 0 {width} {height}">
 				<path d={path} stroke-width={BAR_WIDTH_PX} />
 			</svg>
@@ -75,14 +84,13 @@
 		color: color-mix(in srgb, var(--text-secondary) 45%, transparent);
 	}
 
-	/* Up to the pointer, so the bars show where a click would seek to. */
 	.preview {
 		color: color-mix(in srgb, var(--accent-text) 45%, transparent);
-		clip-path: inset(0 calc(100% - var(--hover)) 0 0);
+		clip-path: inset(0 calc(100% - var(--preview)) 0 0);
 	}
 
 	.tint {
 		color: var(--accent-text);
-		clip-path: inset(0 calc(100% - var(--played)) 0 0);
+		clip-path: inset(0 calc(100% - var(--tint)) 0 0);
 	}
 </style>
