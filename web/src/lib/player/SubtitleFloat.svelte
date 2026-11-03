@@ -1,7 +1,9 @@
 <script lang="ts">
 	import Icon from '../components/Icon.svelte';
 	import { player } from './player.svelte';
+	import { inShell } from '../desktop/shell';
 	import { floatLines, positionAfterDrag, subtitleFloat } from './subtitle-float.svelte';
+	import { subtitlePip } from './subtitle-pip.svelte';
 
 	// The current subtitle line in a card over the pages other than the
 	// player page. A video draws its subtitles on the picture, so only audio
@@ -13,7 +15,13 @@
 	let start: { x: number; y: number; id: number } | null = null;
 
 	let cues = $derived(player.subtitle.state === 'ready' ? player.subtitle.cues : []);
-	let shown = $derived(subtitleFloat.on && player.current?.kind === 'audio' && cues.length > 0);
+	// The picture-in-picture window takes over from the card while it is open.
+	let shown = $derived(
+		subtitleFloat.on && !subtitlePip.open && player.current?.kind === 'audio' && cues.length > 0
+	);
+	// The desktop app's WebView may have the API too, but the app gets its own
+	// window instead.
+	const canPip = subtitlePip.supported && !inShell();
 	let lines = $derived(floatLines(cues, player.currentTime));
 	let placement = $derived.by(() => {
 		const { x, y } = subtitleFloat.position;
@@ -59,6 +67,7 @@
 			bind:this={card}
 			{@attach endDragOnRemove}
 			class="card"
+			class:two-buttons={canPip}
 			class:dragging={subtitleFloat.drag !== null}
 			style={placement}
 			role="region"
@@ -74,9 +83,16 @@
 				{lines.current ?? ''}
 			</p>
 			<p class="next" data-testid="float-next">{lines.next ?? ''}</p>
-			<button type="button" class="close" aria-label="关闭悬浮字幕" onclick={() => subtitleFloat.setOn(false)}>
-				<Icon name="close" size={16} />
-			</button>
+			<div class="buttons">
+				{#if canPip}
+					<button type="button" aria-label="在画中画窗口显示字幕" onclick={() => subtitlePip.toggle()}>
+						<Icon name="pip" size={16} />
+					</button>
+				{/if}
+				<button type="button" aria-label="关闭悬浮字幕" onclick={() => subtitleFloat.setOn(false)}>
+					<Icon name="close" size={16} />
+				</button>
+			</div>
 		</div>
 	</div>
 {/if}
@@ -177,11 +193,19 @@
 		opacity: 0.55;
 	}
 
-	/* A 44px target with a smaller visible disc. */
-	.close {
+	.card.two-buttons {
+		padding-right: 5.25rem;
+	}
+
+	.buttons {
 		position: absolute;
 		top: 0.125rem;
 		right: 0.125rem;
+		display: flex;
+	}
+
+	/* 44px targets with a smaller visible disc. */
+	.buttons button {
 		display: grid;
 		place-items: center;
 		width: 2.75rem;
@@ -191,8 +215,8 @@
 		cursor: pointer;
 	}
 
-	.close:hover,
-	.close:focus-visible {
+	.buttons button:hover,
+	.buttons button:focus-visible {
 		color: white;
 		background: radial-gradient(circle, rgb(255 255 255 / 0.15) 0 0.9rem, transparent 0.9rem);
 	}

@@ -140,3 +140,42 @@ test('there is no card on the player page or for a track without subtitles', asy
 	await expect(card(page)).toHaveCount(0);
 	await expect(toggle(page)).toHaveCount(0);
 });
+
+test('the picture-in-picture window shows the lines and takes over from the card', async ({ page }, testInfo) => {
+	test.skip(testInfo.project.name === 'phone', 'Phone browsers have no picture-in-picture windows.');
+	// The window a real one opens is out of the test's reach, so an iframe
+	// stands in for it. Removing it fires pagehide, as closing the window does.
+	await page.addInitScript(() => {
+		// Chromium has the API as a getter, which plain assignment cannot replace.
+		Object.defineProperty(window, 'documentPictureInPicture', {
+			configurable: true,
+			value: {
+				requestWindow: async ({ width, height }: { width: number; height: number }) => {
+					const frame = document.createElement('iframe');
+					frame.id = 'pip-stub';
+					frame.style.cssText = `position:fixed;left:0;top:0;z-index:99;border:0;width:${width}px;height:${height}px`;
+					frame.srcdoc = '<!doctype html><html><head></head><body></body></html>';
+					const loaded = new Promise((resolve) => frame.addEventListener('load', resolve, { once: true }));
+					document.body.append(frame);
+					await loaded;
+					return frame.contentWindow;
+				}
+			}
+		});
+	});
+	await playTr01(page);
+	await card(page).getByRole('button', { name: '在画中画窗口显示字幕' }).click();
+	const pip = page.frameLocator('#pip-stub');
+	await expect(pip.getByTestId('pip-current')).toContainText('第 1 句');
+	await expect(pip.getByTestId('pip-next')).toContainText('第 2 句');
+	await expect(card(page)).toHaveCount(0);
+	await shot(page, testInfo, 'pip');
+
+	// Its buttons drive the same player.
+	await pip.getByRole('button', { name: '暂停' }).click();
+	await expect(miniPlayer(page).getByRole('button', { name: '播放' })).toBeVisible();
+	await expect(pip.getByRole('button', { name: '播放' })).toBeVisible();
+
+	await page.evaluate(() => document.getElementById('pip-stub')?.remove());
+	await expect(card(page)).toBeVisible();
+});
