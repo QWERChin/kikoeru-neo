@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
 	import Icon from '../components/Icon.svelte';
 	import { player } from './player.svelte';
 	import { floatLines, positionAfterDrag, subtitleFloat } from './subtitle-float.svelte';
@@ -49,16 +48,16 @@
 		subtitleFloat.drag = null;
 	}
 
-	// A track change can remove the card mid-drag, before pointerup.
-	onDestroy(() => {
-		subtitleFloat.drag = null;
-	});
+	// A track change hides the card while the new subtitle loads, which can
+	// happen mid-drag, before pointerup. The next card starts in its place.
+	const endDragOnRemove = () => onPointerCancel;
 </script>
 
 {#if shown}
 	<div class="area" bind:this={area}>
 		<div
 			bind:this={card}
+			{@attach endDragOnRemove}
 			class="card"
 			class:dragging={subtitleFloat.drag !== null}
 			style={placement}
@@ -68,6 +67,7 @@
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerCancel}
+			onlostpointercapture={onPointerCancel}
 		>
 			<span class="grip" aria-hidden="true"></span>
 			<p class="current" class:faded={!lines.spoken} data-testid="float-current">

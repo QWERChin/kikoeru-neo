@@ -32,6 +32,16 @@ describe('floatLines', () => {
 		expect(floatLines(CUES, 7.5)).toEqual({ current: '第三句', spoken: true, next: '第四句' });
 	});
 
+	it('keeps the line that ended last when a long cue holds a short one', () => {
+		const nested: Cue[] = [
+			{ start: 0, end: 10, text: 'A' },
+			{ start: 2, end: 4, text: 'B' },
+			{ start: 12, end: 14, text: 'C' }
+		];
+		expect(floatLines(nested, 9)).toEqual({ current: 'A', spoken: true, next: 'C' });
+		expect(floatLines(nested, 11)).toEqual({ current: 'A', spoken: false, next: 'C' });
+	});
+
 	it('has no next line after the last cue starts', () => {
 		expect(floatLines(CUES, 13)).toEqual({ current: '第四句', spoken: true, next: null });
 		expect(floatLines(CUES, 20)).toEqual({ current: '第四句', spoken: false, next: null });

@@ -96,6 +96,36 @@ test('the card stays where it is dragged, on other pages too', async ({ page }, 
 	expect(Math.abs(elsewhere.y - moved.y)).toBeLessThan(2);
 });
 
+test('a track change in the middle of a drag leaves the next card in its place', async ({ page }) => {
+	await playTr01(page);
+	const box = (await card(page).boundingBox())!;
+	await page.mouse.move(box.x + 40, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(box.x - 200, box.y - 200, { steps: 5 });
+	// The track changes under the held button, as when a track ends, and
+	// Tr02 has no subtitle, so the card goes away before the button is let go.
+	await miniPlayer(page)
+		.getByRole('button', { name: '下一轨' })
+		.evaluate((el: HTMLButtonElement) => el.click());
+	await expect(miniPlayer(page)).toContainText('Tr02');
+	await expect(card(page)).toHaveCount(0);
+	await page.mouse.up();
+
+	await tracks(page)
+		.getByRole('button', { name: /^Tr01\.mp3/ })
+		.evaluate((el: HTMLButtonElement) => el.click());
+	await expect(card(page)).toBeVisible();
+	const back = (await card(page).boundingBox())!;
+	expect(Math.abs(back.x - box.x)).toBeLessThan(2);
+	expect(Math.abs(back.y - box.y)).toBeLessThan(2);
+	// A move with no button held does not drag it either.
+	await page.mouse.move(10, 10, { steps: 3 });
+	const still = (await card(page).boundingBox())!;
+	expect(Math.abs(still.x - box.x)).toBeLessThan(2);
+	expect(Math.abs(still.y - box.y)).toBeLessThan(2);
+	expect(await savedPrefs(page)).toBeNull();
+});
+
 test('there is no card on the player page or for a track without subtitles', async ({ page }) => {
 	await playTr01(page);
 	await expect(card(page)).toBeVisible();

@@ -26,7 +26,14 @@ export function floatLines(cues: readonly Cue[], time: number): FloatLines {
 	const upcoming = firstAfter(cues, time);
 	const next = cues[upcoming]?.text ?? null;
 	if (active >= 0) return { current: cues[active]?.text ?? null, spoken: true, next };
-	return { current: cues[upcoming - 1]?.text ?? null, spoken: false, next };
+	// Every cue that started has ended. The one that ended last was heard
+	// last; a short cue inside a longer one starts later but ends earlier.
+	let last: Cue | null = null;
+	for (let i = 0; i < upcoming; i++) {
+		const cue = cues[i];
+		if (cue && (!last || cue.end >= last.end)) last = cue;
+	}
+	return { current: last?.text ?? null, spoken: false, next };
 }
 
 /**
