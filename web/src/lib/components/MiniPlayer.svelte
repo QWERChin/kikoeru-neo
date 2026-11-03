@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { on } from 'svelte/events';
 	import { player } from '../player/player.svelte';
+	import { subtitleFloat } from '../player/subtitle-float.svelte';
 	import { videoView } from '../player/video.svelte';
 	import { onVolumeKey } from '../player/volume-keys';
 	import Cover from './Cover.svelte';
@@ -56,7 +57,7 @@
 			<div class="hidden min-w-48 flex-1 md:block">
 				<Scrubber variant="bar" />
 			</div>
-			<!-- Phones have room for two buttons only, play and next. -->
+			<!-- Phones have room for play, next and the subtitle switch only. -->
 			<button
 				type="button"
 				class="hidden size-11 shrink-0 place-items-center rounded-full hover:bg-fill md:grid"
@@ -90,6 +91,21 @@
 			>
 				<Icon name="next" size={24} filled />
 			</button>
+			<!-- Switches the floating subtitle card on the other pages. A video
+			     draws its subtitles on the picture instead. -->
+			{#if player.current.kind === 'audio' && player.current.has_subtitle}
+				<button
+					type="button"
+					class="grid size-11 shrink-0 place-items-center rounded-full hover:bg-fill {subtitleFloat.on
+						? 'text-accent-text'
+						: 'text-secondary'}"
+					aria-label="悬浮字幕"
+					aria-pressed={subtitleFloat.on}
+					onclick={() => subtitleFloat.setOn(!subtitleFloat.on)}
+				>
+					<Icon name="captions" size={24} />
+				</button>
+			{/if}
 			<!-- Phones change the volume with their buttons, and the bar has no room. -->
 			<div class="hidden md:block">
 				<VolumeControl variant="bar" />

@@ -4,6 +4,7 @@
 	import Sidebar from '#lib/components/Sidebar.svelte';
 	import TabBar from '#lib/components/TabBar.svelte';
 	import { player } from '#lib/player/player.svelte.ts';
+	import SubtitleFloat from '#lib/player/SubtitleFloat.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -33,3 +34,4 @@
 	</div>
 </div>
 <FavoriteToast />
+<SubtitleFloat />
