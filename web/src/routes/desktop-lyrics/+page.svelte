@@ -4,6 +4,7 @@
 	import Icon from '#lib/components/Icon.svelte';
 	import { desktop } from '#lib/desktop/desktop.svelte.ts';
 	import { nextColor, readLyricsPrefs, resized, writeLyricsPrefs } from '#lib/desktop/lyrics-prefs.ts';
+	import { connectLyrics } from '#lib/desktop/lyrics-window.ts';
 
 	// The desktop lyrics window: a transparent, always-on-top window the shell
 	// opens (book/src/desktop.md, "桌面歌词"). The playing page sends the lines
@@ -15,22 +16,13 @@
 	let prefs = $state(readLyricsPrefs());
 	let error = $state<string | null>(null);
 
-	onMount(() => {
-		const { commands } = desktop;
-		const stops: Array<Promise<() => void>> = [
-			commands.onLyricsLines((next) => (lines = next)),
-			commands.onLyricsLocked((next) => (locked = next))
-		];
-		// Asked once listening has started, so no change is missed. An event
-		// that arrives before the answer is the newer of the two.
-		commands.lyricsNow().then(
-			(now) => (lines ??= now),
-			(e: unknown) => (error = String(e))
-		);
-		return () => {
-			for (const stop of stops) void stop.then((f) => f());
-		};
-	});
+	onMount(() =>
+		connectLyrics(desktop.commands, {
+			lines: (next) => (lines = next),
+			locked: (next) => (locked = next),
+			error: (e) => (error = String(e))
+		})
+	);
 
 	function save(next: typeof prefs) {
 		prefs = next;

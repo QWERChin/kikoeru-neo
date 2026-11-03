@@ -39,10 +39,15 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             "toggle" => control(app, MediaControl::Toggle),
             "previous" => control(app, MediaControl::Previous),
             "next" => control(app, MediaControl::Next),
+            // Off the event loop: creating a webview from its handler
+            // deadlocks on Windows.
             "lyrics" => {
-                if let Err(e) = crate::lyrics::toggle(app) {
-                    tracing::warn!(error = %e, "cannot toggle the lyrics window");
-                }
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = crate::lyrics::toggle(&app) {
+                        tracing::warn!(error = %e, "cannot toggle the lyrics window");
+                    }
+                });
             }
             "unlock-lyrics" => {
                 if let Err(e) = crate::lyrics::lock(app, false) {

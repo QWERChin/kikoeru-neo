@@ -52,6 +52,15 @@ fn open<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     Ok(())
 }
 
+/// Drops the latest lines when the page that sent them goes away, so a
+/// window opened from the picker does not show a track nobody plays.
+pub fn forget<R: Runtime>(app: &AppHandle<R>) {
+    *app.state::<Lyrics>()
+        .lines
+        .lock()
+        .expect("lyrics mutex poisoned") = None;
+}
+
 /// Opens the window, or closes it when it is open.
 pub fn toggle<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     match app.get_webview_window(LABEL) {
@@ -75,13 +84,16 @@ pub fn lock<R: Runtime>(app: &AppHandle<R>, locked: bool) -> Result<(), String> 
     Ok(())
 }
 
+// Async, like every path that opens the window: on Windows, creating a
+// webview from a synchronous command or the event loop's own handlers
+// deadlocks.
 #[tauri::command]
-pub fn lyrics_toggle(app: AppHandle) -> Result<(), String> {
+pub async fn lyrics_toggle(app: AppHandle) -> Result<(), String> {
     toggle(&app)
 }
 
 #[tauri::command]
-pub fn lyrics_lines(app: AppHandle, lines: LyricsLines) {
+pub fn lyrics_lines<R: Runtime>(app: AppHandle<R>, lines: LyricsLines) {
     *app.state::<Lyrics>()
         .lines
         .lock()
@@ -91,7 +103,7 @@ pub fn lyrics_lines(app: AppHandle, lines: LyricsLines) {
 
 /// What the window shows when it opens.
 #[tauri::command]
-pub fn lyrics_now(app: AppHandle) -> Option<LyricsLines> {
+pub fn lyrics_now<R: Runtime>(app: AppHandle<R>) -> Option<LyricsLines> {
     app.state::<Lyrics>()
         .lines
         .lock()

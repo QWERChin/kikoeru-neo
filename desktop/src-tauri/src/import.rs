@@ -398,6 +398,7 @@ mod tests {
                 windows: AtomicU64::new(0),
                 web: Arc::new(|_| None),
             })
+            .manage(crate::lyrics::Lyrics::default())
             .build(mock_context(noop_assets()))
             .unwrap();
         tauri::WebviewWindowBuilder::new(

@@ -179,6 +179,7 @@ fn open_window<R: tauri::Runtime>(
             let _ = old.destroy();
         }
     }
+    lyrics::forget(app);
     Ok(())
 }
 
@@ -751,12 +752,10 @@ pub fn run() {
             // backend is still stopping its transcodes.
             // Closing the window only hides it, and on macOS clicking the
             // Dock icon of the running app is how people bring it back.
+            // The lyrics window can be the only visible one, which macOS
+            // counts, so this does not wait for none to be visible.
             #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Reopen {
-                has_visible_windows: false,
-                ..
-            } = event
-            {
+            if let tauri::RunEvent::Reopen { .. } = event {
                 tray::show(app);
                 return;
             }
@@ -806,6 +805,43 @@ mod tests {
         for permission in WINDOW_DRAG {
             assert!(granted.iter().any(|p| p == permission), "{permission}");
         }
+    }
+
+    #[tokio::test]
+    async fn switching_mode_forgets_the_lyrics_of_the_page_it_closes() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+
+        let dir = tempfile::tempdir().unwrap();
+        let app = mock_builder()
+            .manage(Shell {
+                config_file: dir.path().join("desktop.json"),
+                config: Mutex::new(DesktopConfig {
+                    mode: Some(Mode::Server),
+                    server_url: Some("https://k.example/".into()),
+                }),
+                server: tokio::sync::Mutex::new(None),
+                transition: tokio::sync::Mutex::new(()),
+                import_pick: Mutex::new(None),
+                import_read_barrier: None,
+                last_error: Mutex::new(None),
+                windows: AtomicU64::new(0),
+                web: std::sync::Arc::new(|_| None),
+            })
+            .manage(lyrics::Lyrics::default())
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let lines = dto::LyricsLines {
+            current: Some("第一句".into()),
+            spoken: true,
+            next: None,
+            title: Some("Tr01".into()),
+            playing: true,
+        };
+        lyrics::lyrics_lines(app.handle().clone(), lines.clone());
+        assert_eq!(lyrics::lyrics_now(app.handle().clone()), Some(lines));
+
+        switch_mode(app.handle().clone()).await.unwrap();
+        assert_eq!(lyrics::lyrics_now(app.handle().clone()), None);
     }
 
     #[test]
