@@ -6,6 +6,8 @@ tmp=$(mktemp -d)
 name="neo-smoke-${tmp##*.}"
 cleanup() {
   docker logs "$name" 2>&1 || true
+  # The probes' exit codes and output say why the container never became healthy.
+  docker inspect -f '{{json .State.Health}}' "$name" 2>&1 || true
   docker rm -fv "$name" >/dev/null 2>&1 || true
   docker volume rm "$name-data" "$name-backup" >/dev/null 2>&1 || true
   rm -rf "$tmp"
