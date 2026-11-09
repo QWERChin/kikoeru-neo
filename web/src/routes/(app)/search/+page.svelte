@@ -94,11 +94,24 @@
 	</label>
 {/snippet}
 
+{#snippet selectedFilter(label: string, value: string, clear: () => void)}
+	<li class="min-w-0 max-w-full">
+		<button
+			type="button"
+			class="flex min-h-11 max-w-full items-center gap-2 rounded-full bg-fill px-3 text-[13px]"
+			aria-label={`移除${label}筛选：${value}`}
+			onclick={clear}
+		>
+			<span class="min-w-0 break-words">{label}：{value}</span>
+			<Icon name="close" size={14} class="shrink-0 text-secondary" />
+		</button>
+	</li>
+{/snippet}
+
 <LargeTitle title="搜索" />
 
 <div class="flex flex-col gap-3 px-4 pb-4 md:px-8">
-	<!-- On desktop the sidebar's box is the search box, as the book's page table says. -->
-	<SearchBox class="md:hidden" />
+	<SearchBox autofocus />
 
 	<div class="flex flex-wrap items-center gap-2" role="group" aria-label="筛选">
 		<ListPicker
@@ -143,17 +156,31 @@
 			)}
 		{/if}
 	</div>
+	{#if search.tag !== null || search.circle !== null || search.va !== null || search.root !== null}
+		<ul class="flex flex-wrap items-center gap-2" aria-label="已选筛选条件">
+			{#if search.tag !== null}
+				{@render selectedFilter('标签', lists?.tags.find((t) => t.id === search.tag)?.name ?? missing(String(search.tag)), () => change({ tag: null }))}
+			{/if}
+			{#if search.circle !== null}
+				{@render selectedFilter('社团', lists?.circles.find((c) => c.id === search.circle)?.name ?? missing(String(search.circle)), () => change({ circle: null }))}
+			{/if}
+			{#if search.va !== null}
+				{@render selectedFilter('声优', lists?.vas.find((va) => va.id === search.va)?.name ?? missing(search.va), () => change({ va: null }))}
+			{/if}
+			{#if search.root !== null}
+				{@render selectedFilter('媒体库', rootName ?? search.root, () => change({ root: null }))}
+			{/if}
+		</ul>
+	{/if}
 	{#if listsError}
 		<p class="text-[13px] text-danger" role="alert">筛选列表加载失败：{listsError.message}</p>
 	{/if}
-
-	<SortControl current={search} onChange={change} />
 </div>
 
 {#if !active}
 	<div class="px-4 md:px-8">
 		{#if recentSearches.list.length > 0}
-			<section aria-labelledby="recent-searches" class="md:hidden">
+			<section aria-labelledby="recent-searches">
 				<div class="flex items-center justify-between">
 					<h2 id="recent-searches" class="text-[13px] font-semibold tracking-wide text-secondary">
 						最近搜索
@@ -182,6 +209,10 @@
 		</p>
 	</div>
 {:else if !needsSeed(search)}
+	<div class="flex flex-wrap items-center justify-between gap-3 px-4 pt-3 pb-4 md:px-8">
+		<h2 class="text-[17px] font-semibold">搜索结果</h2>
+		<SortControl current={search} onChange={change} />
+	</div>
 	<PagedWorks
 		requestKey={searchStateToQuery(search)}
 		load={(pageSize) => listWorks(toWorksQuery(search, pageSize))}

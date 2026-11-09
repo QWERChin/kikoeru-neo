@@ -142,6 +142,7 @@ test('login, library, search, favorites and sign out', async ({ page }, testInfo
 	await signIn(page, listener(testInfo));
 	await expect(page.getByRole('article').first()).toBeVisible();
 
+	await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '搜索', exact: true }).click();
 	await page.getByRole('searchbox', { name: '搜索作品' }).fill('合成作品甲');
 	await expect(page).toHaveURL(/\/search\?q=/);
 	const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: work.title, exact: true }) });

@@ -48,6 +48,51 @@ async function settled(page: Page) {
 
 const searchBox = (page: Page) => page.getByRole('searchbox', { name: '搜索作品' });
 
+test('search opens with one focused input above its filters and results', async ({ page }, testInfo) => {
+	await signIn(page);
+	await page.getByRole('link', { name: '搜索', exact: true }).click();
+	const input = page.getByRole('main').getByRole('searchbox', { name: '搜索作品' });
+	await expect(page.getByRole('searchbox')).toHaveCount(1);
+	await expect(input).toBeFocused();
+	await expect(page.getByRole('article')).toHaveCount(0);
+	await input.fill('合成');
+	await expect(page.getByText('第 1 / 3 页 · 共 90 部')).toBeVisible();
+	const inputBox = await input.boundingBox();
+	const filters = await page.getByRole('group', { name: '筛选', exact: true }).boundingBox();
+	const results = await page.getByRole('heading', { name: '搜索结果' }).boundingBox();
+	expect(inputBox && filters && filters.y >= inputBox.y + inputBox.height).toBe(true);
+	expect(filters && results && results.y >= filters.y + filters.height).toBe(true);
+	await shot(page, testInfo, 'search-layout');
+});
+
+test('removing a selected filter keeps the other URL state and back restores it', async ({ page }) => {
+	await signIn(page);
+	await page.goto('/search?q=合成&tag=7&circle=3&va=va-sample-2&root=local&sort=release&order=asc&page=2');
+	const selected = page.getByRole('list', { name: '已选筛选条件' });
+	await expect(selected.getByRole('listitem')).toHaveCount(4);
+	await expect(selected).toContainText('标签：ASMR');
+	await expect(selected).toContainText('社团：示例社团');
+	await expect(selected).toContainText('声优：示例声优乙');
+	await expect(selected).toContainText('媒体库：本地作品');
+
+	await selected.getByRole('button', { name: '移除标签筛选：ASMR', exact: true }).click();
+	await expect(page).toHaveURL('/search?q=%E5%90%88%E6%88%90&circle=3&va=va-sample-2&root=local&sort=release&order=asc');
+	await expect(selected.getByRole('listitem')).toHaveCount(3);
+	await expect(searchBox(page)).toHaveValue('合成');
+	await expect(page.getByLabel('排序')).toHaveValue('release');
+
+	await page.goBack();
+	await expect(page).toHaveURL(/tag=7&circle=3&va=va-sample-2&root=local&sort=release&order=asc&page=2$/);
+	await expect(selected.getByRole('listitem')).toHaveCount(4);
+
+	await selected.getByRole('button', { name: '移除社团筛选：示例社团', exact: true }).click();
+	await expect(page).toHaveURL('/search?q=%E5%90%88%E6%88%90&tag=7&va=va-sample-2&root=local&sort=release&order=asc');
+	await selected.getByRole('button', { name: '移除声优筛选：示例声优乙', exact: true }).click();
+	await expect(page).toHaveURL('/search?q=%E5%90%88%E6%88%90&tag=7&root=local&sort=release&order=asc');
+	await selected.getByRole('button', { name: '移除媒体库筛选：本地作品', exact: true }).click();
+	await expect(page).toHaveURL('/search?q=%E5%90%88%E6%88%90&tag=7&sort=release&order=asc');
+});
+
 test('favorites list the samples and follow a toggle on a card and the detail page', async ({ page }, testInfo) => {
 	await signIn(page);
 	await navigate(page, '收藏');
@@ -86,7 +131,7 @@ test('favorites list the samples and follow a toggle on a card and the detail pa
 
 test('search combines text, a filter, a sort and paging, and back restores each step', async ({ page }, testInfo) => {
 	await signIn(page);
-	if (testInfo.project.name === 'phone') await page.getByRole('link', { name: '搜索', exact: true }).click();
+	await page.getByRole('link', { name: '搜索', exact: true }).click();
 	await searchBox(page).fill('合成');
 	await expect(page).toHaveURL(/\/search\?q=%E5%90%88%E6%88%90$/);
 	await expect(page.getByText('第 1 / 3 页 · 共 90 部')).toBeVisible();
@@ -126,9 +171,9 @@ test('search combines text, a filter, a sort and paging, and back restores each 
 	await expect(searchBox(page)).toHaveValue('合成');
 });
 
-test('a tag filter is found by searching and cleared with 全部', async ({ page }, testInfo) => {
+test('a tag filter is found by searching and cleared with 全部', async ({ page }) => {
 	await signIn(page);
-	if (testInfo.project.name === 'phone') await page.getByRole('link', { name: '搜索', exact: true }).click();
+	await page.getByRole('link', { name: '搜索', exact: true }).click();
 	await searchBox(page).fill('合成');
 	await expect(page).toHaveURL(/q=%E5%90%88%E6%88%90$/);
 	await filterButton(page, '标签').click();
@@ -146,9 +191,9 @@ test('a tag filter is found by searching and cleared with 全部', async ({ page
 	await expect(filterButton(page, '标签')).toContainText('全部');
 });
 
-test('back cancels text that was still waiting and shows the URL’s query again', async ({ page }, testInfo) => {
+test('back cancels text that was still waiting and shows the URL’s query again', async ({ page }) => {
 	await signIn(page);
-	if (testInfo.project.name === 'phone') await page.getByRole('link', { name: '搜索', exact: true }).click();
+	await page.getByRole('link', { name: '搜索', exact: true }).click();
 	await searchBox(page).fill('合成');
 	await expect(page).toHaveURL(/q=%E5%90%88%E6%88%90$/);
 	await pickFilter(page, '标签', 'ASMR（120）');
@@ -175,9 +220,9 @@ test('a random order keeps its seed in the URL, so a page survives a reload', as
 	expect(await page.getByRole('article').getByRole('heading').allTextContents()).toEqual(titles);
 });
 
-test('an unreachable media library shows a notice and keeps the session', async ({ page }, testInfo) => {
+test('an unreachable media library shows a notice and keeps the session', async ({ page }) => {
 	await signIn(page);
-	if (testInfo.project.name === 'phone') await page.getByRole('link', { name: '搜索', exact: true }).click();
+	await page.getByRole('link', { name: '搜索', exact: true }).click();
 	// The mock answers this search with 503 storage_unavailable.
 	await searchBox(page).fill('503');
 	const alert = page.getByRole('alert').filter({ hasText: '媒体库暂时无法访问' });

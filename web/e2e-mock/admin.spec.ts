@@ -318,7 +318,9 @@ test('metadata edits round-trip, and only a forced refresh replaces them', async
 	await navigate(page, '资料库');
 	await page.getByRole('link', { name: /示例作品一（修正）/ }).click();
 	await expect(page.getByRole('heading', { name: '示例作品一（修正）', level: 1 })).toBeVisible();
-	await expect(page.getByText('RJ01234567 · 2024-06-01')).toBeVisible();
+	const info = page.getByRole('region', { name: '作品资料', exact: true });
+	await expect(info.getByText('RJ01234567', { exact: true })).toBeVisible();
+	await expect(info.getByText('2024-06-01', { exact: true })).toBeVisible();
 
 	// A plain refresh keeps the manual edit.
 	await page.getByRole('button', { name: '重新抓取' }).click();

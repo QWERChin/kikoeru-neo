@@ -67,6 +67,28 @@ test('wide windows line the groups up with the cover and the info columns', asyn
 	await shot(page, testInfo, 'layout');
 });
 
+test('playback and tracks come before reference information and management', async ({ page }, testInfo) => {
+	await signIn(page);
+	await openWork(page);
+	const play = await box(page.getByRole('button', { name: '继续播放' }));
+	const tags = page.getByRole('list', { name: '标签', exact: true });
+	const tagsBox = await box(tags);
+	const tracks = await box(region(page, '曲目'));
+	const info = await box(region(page, '作品资料'));
+	const review = await box(region(page, '我的评价'));
+	const admin = await box(region(page, '管理'));
+	expect(tagsBox.y).toBeGreaterThanOrEqual(play.y + play.height);
+	expect(tracks.y).toBeGreaterThanOrEqual(tagsBox.y + tagsBox.height);
+	expect(info.y).toBeGreaterThanOrEqual(tracks.y + tracks.height);
+	expect(review.y).toBeGreaterThanOrEqual(info.y + info.height);
+	expect(admin.y).toBeGreaterThanOrEqual(info.y + info.height);
+	await expect(region(page, '作品资料')).toContainText('RJ01234567');
+	await expect(region(page, '作品资料')).toContainText('4.62');
+	await expect(tags).toContainText('ASMR');
+	await expect(region(page, '管理').getByText('位置', { exact: true })).toBeVisible();
+	await shot(page, testInfo, 'task-order');
+});
+
 test('a window with the sidebar but too narrow for two columns stacks like a phone', async ({ page }, testInfo) => {
 	test.skip(testInfo.project.name !== 'desktop', 'the sidebar only shows on desktop');
 	await page.setViewportSize({ width: 820, height: 1180 });

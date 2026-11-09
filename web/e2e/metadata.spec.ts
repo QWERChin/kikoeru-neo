@@ -160,9 +160,11 @@ test('a new work scanned from the settings page gets its metadata and cover', as
 	await page.getByRole('link', { name: new RegExp(escape(title)) }).first().click();
 	expect((await read).status()).toBe(200);
 	await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
-	await expect(page.getByText(`${code} · ${DLSITE_RELEASE}`)).toBeVisible();
+	const info = page.getByRole('region', { name: '作品资料', exact: true });
+	await expect(info.getByText(code, { exact: true })).toBeVisible();
+	await expect(info.getByText(DLSITE_RELEASE, { exact: true })).toBeVisible();
 	await expect(page.getByText(DLSITE_CIRCLE, { exact: true })).toBeVisible();
-	for (const va of DLSITE_VAS) await expect(page.locator('dd').filter({ hasText: va })).toBeVisible();
+	for (const va of DLSITE_VAS) await expect(page.getByRole('article').getByText(va)).toBeVisible();
 	await expect.poll(() => tagNames(page)).toEqual([...DLSITE_TAGS].sort());
 	await expect(page.getByText(`（${DLSITE_RATING.count} 人评价）`)).toBeVisible();
 	await expect.poll(() => naturalSize(page)).toEqual([DLSITE_COVER.width, DLSITE_COVER.height]);

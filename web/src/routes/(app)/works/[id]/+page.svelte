@@ -249,9 +249,8 @@
 	</div>
 {:else}
 	{@const work = detail}
-	<!-- Wide windows put the cover and the info side by side, and the groups
-	     below line up with those two columns. The sidebar takes 16rem from md
-	     on, so side by side waits for lg, where the info column keeps 18rem. -->
+	<!-- The sidebar takes 16rem from md on, so the cover and playback only
+	     sit side by side from lg, where playback keeps at least 18rem. -->
 	<article
 		class="px-4 pb-4 md:px-8 lg:grid lg:grid-cols-[24rem_minmax(0,1fr)] lg:items-start lg:gap-x-8 xl:grid-cols-[28rem_minmax(0,1fr)]"
 	>
@@ -264,60 +263,17 @@
 		/>
 
 		<div class="mt-4 min-w-0 lg:mt-0">
-			<p class="text-[13px] font-medium tracking-wide text-secondary">
-				{work.code}{work.release_date ? ` · ${work.release_date}` : ''}
-			</p>
-			<h1 class="mt-1 text-[24px] leading-[30px] font-bold tracking-tight md:text-[28px] md:leading-[34px]">
+			<h1 class="text-[24px] leading-[30px] font-bold tracking-tight md:text-[28px] md:leading-[34px]">
 				{work.title}
 			</h1>
 			<p class="mt-1 text-[17px] text-accent-text">{work.circle?.name ?? '未知社团'}</p>
 
-			<dl class="mt-3 flex flex-col gap-1 text-[15px]">
-				{#if work.vas.length > 0}
-					<div class="flex gap-2">
-						<dt class="shrink-0 text-secondary">声优</dt>
-						<dd class="min-w-0">{work.vas.map((va) => va.name).join('、')}</dd>
-					</div>
-				{/if}
-				<div class="flex gap-2">
-					<dt class="shrink-0 text-secondary">评分</dt>
-					<dd class="flex items-center gap-1">
-						{#if work.rate_average !== null}
-							<Icon name="star" size={16} filled class="text-[#ff9f0a]" />
-							<span class="tabular-nums">{work.rate_average.toFixed(2)}</span>
-							{#if work.rate_count !== null}
-								<span class="text-secondary">（{work.rate_count} 人评价）</span>
-							{/if}
-						{:else}
-							<span class="text-secondary">暂无</span>
-						{/if}
-					</dd>
-				</div>
-				<div class="flex gap-2">
-					<dt class="shrink-0 text-secondary">时长</dt>
-					<dd>
-						{work.total_duration_ms === null ? '还没算出' : formatDuration(work.total_duration_ms)}
-					</dd>
-				</div>
-				<!-- Only admins get locations. Folder names can be one long run of
-				     letters, so they break anywhere instead of widening the column. -->
-				{#if work.locations && work.locations.length > 0}
-					<div class="flex gap-2">
-						<dt class="shrink-0 text-secondary">位置</dt>
-						<dd class="min-w-0">
-							<ul>
-								{#each work.locations as location, i (i)}
-									<li class="[overflow-wrap:anywhere]">
-										{location.root_name} · {location.path}{#if location.missing}<span
-												class="text-secondary">（已缺失）</span
-											>{/if}
-									</li>
-								{/each}
-							</ul>
-						</dd>
-					</div>
-				{/if}
-			</dl>
+			{#if work.vas.length > 0}
+				<p class="mt-3 text-[15px]">
+					<span class="text-secondary">声优</span>
+					{work.vas.map((va) => va.name).join('、')}
+				</p>
+			{/if}
 
 			<div class="mt-5 flex items-center gap-3">
 				<button
@@ -338,45 +294,115 @@
 					{:else}
 						播放
 					{/if}
+					{#if playingHere}<Icon name="chevronRight" size={18} />{/if}
 				</button>
 				<FavoriteButton {work} variant="large" />
+			</div>
+
+			<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+				{#if playingHere && player.current}
+					<p class="min-w-0 text-[13px] text-secondary [overflow-wrap:anywhere]">
+						{`${player.paused ? '暂停在' : '正在播放'} ${player.currentTitle} 的 ${formatClock(player.currentTime)}`}
+					</p>
+				{:else if start?.resumed && startTrack}
+					<p class="min-w-0 text-[13px] text-secondary [overflow-wrap:anywhere]">
+						上次听到 {trackTitle(startTrack.path)} 的 {formatClock(start.positionMs / 1000)}
+					</p>
+				{:else if unmatched}
+					<p class="min-w-0 text-[13px] text-secondary">
+						导入的旧进度还没对上具体的轨道，无法精确恢复，会从第一轨开始播放。
+					</p>
+				{/if}
 				<button
 					type="button"
-					class="grid size-12 shrink-0 place-items-center rounded-xl bg-surface text-accent-text disabled:text-finished"
-					aria-label={canMarkFinished ? '标记为听过' : '已听过'}
-					title={canMarkFinished ? '标记为听过' : '已听过'}
+					class="flex min-h-11 shrink-0 items-center gap-1.5 text-[13px] text-accent-text disabled:text-finished"
 					disabled={!canMarkFinished || busy !== null}
 					onclick={markFinished}
 				>
-					<Icon name="check" size={24} strokeWidth={2.4} />
+					<Icon name="check" size={16} strokeWidth={2.4} />
+					{work.progress?.finished && !work.progress.replaying ? '已听过' : '标记为听过'}
 				</button>
 			</div>
-
-			{#if playingHere && player.current}
-				<p class="mt-2 text-[13px] text-secondary">
-					{`${player.paused ? '暂停在' : '正在播放'} ${player.currentTitle} 的 ${formatClock(player.currentTime)}，点按钮打开播放页`}
-				</p>
-			{:else if start?.resumed && startTrack}
-				<p class="mt-2 text-[13px] text-secondary">
-					上次听到 {trackTitle(startTrack.path)} 的 {formatClock(start.positionMs / 1000)}
-				</p>
-			{:else if unmatched}
-				<p class="mt-2 text-[13px] text-secondary">
-					导入的旧进度还没对上具体的轨道，无法精确恢复，会从第一轨开始播放。
-				</p>
-			{/if}
 			{#if actionError?.kind === 'finish'}
 				<p class="mt-2 text-[13px] text-danger" role="alert">{actionError.message}</p>
 			{/if}
-
 			{#if work.tags.length > 0}
-				<ul class="mt-4 flex flex-wrap gap-2" aria-label="标签">
+				<ul class="mt-3 flex flex-wrap gap-2" aria-label="标签">
 					{#each work.tags as tag (tag.id)}
 						<li class="rounded-full bg-fill px-3 py-1 text-[13px]">{tag.name}</li>
 					{/each}
 				</ul>
 			{/if}
 		</div>
+
+		<section class="mt-8 lg:col-span-full" aria-labelledby="tracks-heading">
+			<div class="flex items-center justify-between px-1 {canDownload ? 'pb-1' : 'pb-2'}">
+				<h2 id="tracks-heading" class="text-[13px] font-semibold tracking-wide text-secondary">曲目</h2>
+				{#if canDownload && work.tracks.some((t) => !t.missing)}
+					<button
+						type="button"
+						class="-mr-2 flex min-h-11 items-center gap-1 px-2 text-[15px] text-accent-text"
+						onclick={() => void download(workDownloadPath(work.id, null))}
+					>
+						<Icon name="download" size={18} />
+						下载全部
+					</button>
+				{/if}
+			</div>
+			{#if downloadError}
+				<p class="px-1 pb-2 text-[13px] text-danger" role="alert">{downloadError}</p>
+			{/if}
+			{#if work.tracks.length === 0}
+				<p class="rounded-xl bg-surface px-4 py-3 text-secondary">这部作品还没有文件。</p>
+			{:else if tree}
+				{#key work.id}
+					<TrackTree
+						root={tree}
+						initiallyOpen={start ? ancestorPaths(start.groupPath) : []}
+						currentTrackId={playingHere ? (player.current?.id ?? null) : null}
+						onPlay={(track) => player.playTrack(work, track)}
+						onDownloadFile={canDownload ? (track) => void download(trackDownloadPath(track.id)) : undefined}
+						onDownloadFolder={canDownload
+							? (folder) => void download(workDownloadPath(work.id, folder.path))
+							: undefined}
+					/>
+				{/key}
+			{/if}
+		</section>
+
+		<section class="mt-8 lg:col-span-full" aria-labelledby="work-info-heading">
+			<h2 id="work-info-heading" class="px-1 pb-2 text-[13px] font-semibold tracking-wide text-secondary">作品资料</h2>
+			<dl class="grid gap-x-8 gap-y-2 rounded-xl bg-surface px-4 py-3 text-[15px] lg:grid-cols-2">
+				<div class="flex gap-2">
+					<dt class="shrink-0 text-secondary">编号</dt>
+					<dd>{work.code}</dd>
+				</div>
+				{#if work.release_date}
+					<div class="flex gap-2">
+						<dt class="shrink-0 text-secondary">发售日</dt>
+						<dd>{work.release_date}</dd>
+					</div>
+				{/if}
+				<div class="flex gap-2">
+					<dt class="shrink-0 text-secondary">DLsite 评分</dt>
+					<dd class="flex flex-wrap items-center gap-1">
+						{#if work.rate_average !== null}
+							<Icon name="star" size={16} filled class="text-[#ff9f0a]" />
+							<span class="tabular-nums">{work.rate_average.toFixed(2)}</span>
+							{#if work.rate_count !== null}
+								<span class="text-secondary">（{work.rate_count} 人评价）</span>
+							{/if}
+						{:else}
+							<span class="text-secondary">暂无</span>
+						{/if}
+					</dd>
+				</div>
+				<div class="flex gap-2">
+					<dt class="shrink-0 text-secondary">时长</dt>
+					<dd>{work.total_duration_ms === null ? '还没算出' : formatDuration(work.total_duration_ms)}</dd>
+				</div>
+			</dl>
+		</section>
 
 		<!-- The groups below follow the settings page: a heading above a
 		     rounded list, each action a full-width row, notes under the list,
@@ -436,6 +462,23 @@
 		{#if isAdmin}
 			<section class="mt-8 min-w-0" aria-labelledby="admin-heading">
 				<h2 id="admin-heading" class="px-1 pb-2 text-[13px] font-semibold tracking-wide text-secondary">管理</h2>
+				<!-- Folder names may have no spaces, so they must wrap inside the column. -->
+				{#if work.locations && work.locations.length > 0}
+					<dl class="mb-2 rounded-xl bg-surface px-4 py-3 text-[15px]">
+						<div class="flex gap-2">
+							<dt class="shrink-0 text-secondary">位置</dt>
+							<dd class="min-w-0">
+								<ul>
+									{#each work.locations as location, i (i)}
+										<li class="[overflow-wrap:anywhere]">
+											{location.root_name} · {location.path}{#if location.missing}<span class="text-secondary">（已缺失）</span>{/if}
+										</li>
+									{/each}
+								</ul>
+							</dd>
+						</div>
+					</dl>
+				{/if}
 				<div class="overflow-hidden rounded-xl bg-surface">
 					<button
 						type="button"
@@ -467,41 +510,6 @@
 				</div>
 			</section>
 		{/if}
-
-		<section class="mt-8 lg:col-span-full" aria-labelledby="tracks-heading">
-			<div class="flex items-center justify-between px-1 {canDownload ? 'pb-1' : 'pb-2'}">
-				<h2 id="tracks-heading" class="text-[13px] font-semibold tracking-wide text-secondary">曲目</h2>
-				{#if canDownload && work.tracks.some((t) => !t.missing)}
-					<button
-						type="button"
-						class="-mr-2 flex min-h-11 items-center gap-1 px-2 text-[15px] text-accent-text"
-						onclick={() => void download(workDownloadPath(work.id, null))}
-					>
-						<Icon name="download" size={18} />
-						下载全部
-					</button>
-				{/if}
-			</div>
-			{#if downloadError}
-				<p class="px-1 pb-2 text-[13px] text-danger" role="alert">{downloadError}</p>
-			{/if}
-			{#if work.tracks.length === 0}
-				<p class="rounded-xl bg-surface px-4 py-3 text-secondary">这部作品还没有文件。</p>
-			{:else if tree}
-				{#key work.id}
-					<TrackTree
-						root={tree}
-						initiallyOpen={start ? ancestorPaths(start.groupPath) : []}
-						currentTrackId={playingHere ? (player.current?.id ?? null) : null}
-						onPlay={(track) => player.playTrack(work, track)}
-						onDownloadFile={canDownload ? (track) => void download(trackDownloadPath(track.id)) : undefined}
-						onDownloadFolder={canDownload
-							? (folder) => void download(workDownloadPath(work.id, folder.path))
-							: undefined}
-					/>
-				{/key}
-			{/if}
-		</section>
 	</article>
 	{#key work.id}
 		<ReviewSheet {work} bind:open={reviewing} />

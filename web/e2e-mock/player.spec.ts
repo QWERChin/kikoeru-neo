@@ -335,7 +335,10 @@ test('the detail page of the playing work says so instead of offering to resume'
 	const main = page.getByRole('button', { name: /正在播放|已暂停/ });
 	await expect(main).toBeVisible();
 	await expect(page.getByText(/上次听到/)).toHaveCount(0);
-	await expect(page.locator('article').first()).toContainText(/(正在播放|暂停在) Tr02 的 \d+:\d{2}，点按钮打开播放页/);
+	await expect(page.getByText(/^(正在播放|暂停在) Tr02 的 \d+:\d{2}$/)).toBeVisible();
+	await main.click();
+	await expect(page).toHaveURL(/\/player$/);
+	await expect(page.getByRole('heading', { name: 'Tr02', level: 1 })).toBeVisible();
 });
 
 test('a track that needs a transcode waits for the task, then plays', async ({ page }) => {

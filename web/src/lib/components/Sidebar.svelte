@@ -4,7 +4,6 @@
 	import { roots } from '../stores/roots.svelte';
 	import Icon from './Icon.svelte';
 	import RootHealthDot from './RootHealthDot.svelte';
-	import SearchBox from './SearchBox.svelte';
 
 	const SETTINGS: NavItem = { href: '/settings', label: '设置', icon: 'settings' };
 
@@ -39,7 +38,14 @@
 	aria-label="主导航"
 >
 	<div class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
-		<SearchBox />
+		<a
+			href="/search"
+			class="flex min-h-11 items-center gap-3 rounded-lg bg-fill px-3 text-[15px] {isActive(page.url.pathname, '/search') ? 'font-semibold text-accent-text' : 'text-secondary'}"
+			aria-current={isActive(page.url.pathname, '/search') ? 'page' : undefined}
+		>
+			<Icon name="search" size={20} />
+			搜索
+		</a>
 
 		<ul class="flex flex-col gap-0.5">
 			{#each SIDEBAR_ITEMS as item (item.href)}

@@ -146,7 +146,7 @@ test('under the macOS title bar the sidebar reaches the top and nothing sits und
 		expect((await box(nav)).y).toBe(0);
 		// The list scrolls below the strip, so a long one never slides under the traffic lights.
 		expect((await box(nav.locator('> div'))).y).toBe(TITLE_BAR);
-		expect((await box(nav.getByRole('searchbox'))).y).toBeGreaterThanOrEqual(TITLE_BAR);
+		expect((await box(nav.getByRole('link', { name: '搜索', exact: true }))).y).toBeGreaterThanOrEqual(TITLE_BAR);
 		// The strip shows the sidebar and the page through it.
 		await expect(strip).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 	} else {
