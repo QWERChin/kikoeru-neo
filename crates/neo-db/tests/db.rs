@@ -24,6 +24,26 @@ async fn open_sqlite() -> (tempfile::TempDir, Db) {
 }
 
 #[tokio::test]
+async fn sqlite_library_is_patched_for_mismatched_wal_page_sizes() {
+    let (_dir, db) = open_sqlite().await;
+    let version: String = sqlx::query_scalar("SELECT sqlite_version()")
+        .fetch_one(&db.sqlite().unwrap().read)
+        .await
+        .unwrap();
+    let mut parts = version.split('.').map(|part| part.parse::<u32>().unwrap());
+    let numeric = (
+        parts.next().unwrap(),
+        parts.next().unwrap(),
+        parts.next().unwrap(),
+    );
+    assert!(
+        numeric >= (3, 54, 0),
+        "SQLite {version} is affected by RUSTSEC-2026-0459"
+    );
+    db.close().await;
+}
+
+#[tokio::test]
 async fn migrates_empty_database_to_full_schema() {
     let (_dir, db) = open_sqlite().await;
     let tables: Vec<String> = sqlx::query_scalar(

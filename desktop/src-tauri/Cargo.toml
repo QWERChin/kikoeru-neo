@@ -59,6 +59,7 @@ tauri = { version = "2", features = ["test"] }
 # Reads Info.plist the way the macOS bundler does.
 plist = "1"
 # For writing a synthetic old kikoeru database in the import test.
-sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite-bundled"] }
+# Use the server's SQLx source so SQLite has only one driver in the graph.
+sqlx = { git = "https://github.com/transact-rs/sqlx", rev = "ae659a0ca4e5e6708e589abc216f734deddb8e29", default-features = false, features = ["runtime-tokio", "sqlite-bundled"] }
 tempfile = "3"
 tokio = { version = "1", features = ["macros"] }

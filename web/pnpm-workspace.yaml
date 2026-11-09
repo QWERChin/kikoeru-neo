@@ -2,3 +2,8 @@ allowBuilds:
   lfa-ponyfill: false
 minimumReleaseAgeExclude:
   - '@tauri-apps/api@2.12.3'
+audit:
+  ignore:
+    # vite-plugin-svelte merges checked-in build configuration only. The Rust
+    # server serves static assets and never passes request data to deepmerge.
+    - GHSA-gcqx-w48m-w2h4

@@ -222,7 +222,7 @@
             fileset = fs.unions [ ./web/package.json ./web/pnpm-lock.yaml ./web/pnpm-workspace.yaml ];
           };
           fetcherVersion = 4;
-          hash = "sha256-LUIlI+Ki4uIKZoZlHO/DhX89CZSM0tVHVODvCGW5tOc=";
+          hash = "sha256-Ff4ZiyOj3cDVkSofmnzrcr19gI+6xbV4rxliRjw6Fys=";
         };
         nativeBuildInputs = [ pkgs.nodejs_22 pkgs.pnpm pkgs.pnpmConfigHook (neoTypegen pkgs) ];
         # vite.config.ts resolves the fonts' imports from here.

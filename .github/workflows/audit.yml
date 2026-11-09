@@ -1,7 +1,8 @@
 # Checks the server's, the desktop app's and the frontend's lockfiles against
 # the RustSec and npm advisory databases. It also runs daily, because a new
 # advisory can make an unchanged lockfile vulnerable. Advisories that cannot
-# affect kikoeru-neo are listed with a reason in .cargo/audit.toml.
+# affect kikoeru-neo are listed with a reason in .cargo/audit.toml and
+# web/pnpm-workspace.yaml.
 
 name: Advisories
 
