@@ -5,6 +5,10 @@ image=${1:?usage: docker-smoke.sh IMAGE}
 tmp=$(mktemp -d)
 name="neo-smoke-${tmp##*.}"
 cleanup() {
+  local smoke_status=$?
+  if [ "$smoke_status" -ne 0 ]; then
+    docker inspect -f '{{json .State}}' "$name" >&2 || true
+  fi
   docker logs "$name" 2>&1 || true
   docker rm -fv "$name" >/dev/null 2>&1 || true
   docker volume rm "$name-data" "$name-backup" >/dev/null 2>&1 || true

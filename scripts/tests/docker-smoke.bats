@@ -15,6 +15,10 @@ printf '%s\n' "$*" >> "$FAKE_STATE/docker.log"
 case $1 in
   run) ;;
   inspect)
+    if [ "$3" = '{{json .State}}' ]; then
+      printf '%s\n' '{"Status":"running","Health":{"Log":[{"ExitCode":1,"Output":"synthetic probe failure"}]}}'
+      exit 0
+    fi
     if [ "${FAKE_STAYS_STARTING:-false}" = true ] || [ ! -f "$FAKE_STATE/starting" ]; then
       touch "$FAKE_STATE/starting"
       echo starting
@@ -79,6 +83,7 @@ assert_cleanup() {
   [ "$(cat "$FAKE_STATE/password")" = synthetic-admin-password ]
   grep -q ' stat .* /data$' "$FAKE_STATE/docker.log"
   grep -q ' stat .* /backup$' "$FAKE_STATE/docker.log"
+  ! grep -qF 'inspect -f {{json .State}}' "$FAKE_STATE/docker.log"
   assert_cleanup
 }
 
@@ -86,6 +91,7 @@ assert_cleanup() {
   export FAKE_STAYS_STARTING=true
   run bash "$SMOKE" kikoeru-neo:test
   [ "$status" -ne 0 ]
+  [[ "$output" == *'synthetic probe failure'* ]]
   [[ "$(cat "$FAKE_STATE/docker.log")" != *" user create "* ]]
   assert_cleanup
 }
