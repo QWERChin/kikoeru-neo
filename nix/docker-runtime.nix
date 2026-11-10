@@ -71,6 +71,14 @@ rec {
   # others can write to. backup refuses a destination inside the data
   # directory, so it gets its own volume. SQLite needs a writable /tmp.
   fakeRootCommands = ''
+    # Docker/containerd can reject absolute /etc symlinks before exec.
+    # Materialize them after each image builder has assembled its root filesystem.
+    chmod u+w etc
+    for name in passwd group nsswitch.conf; do
+      cp -L "etc/$name" "$TMPDIR/kikoeru-$name"
+      rm "etc/$name"
+      cp "$TMPDIR/kikoeru-$name" "etc/$name"
+    done
     mkdir data backup tmp config
     chown ${uid}:${uid} data backup
     chmod 0700 data backup

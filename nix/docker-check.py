@@ -159,6 +159,9 @@ check(tmp is not None and tmp.mode & 0o7777 == 0o1777, "/tmp is not 1777")
 conf = find("config")
 check(conf is not None and conf.isdir(), "/config is not a directory")
 check(not under("config"), "/config is not empty")
+for path in ["etc/passwd", "etc/group", "etc/nsswitch.conf"]:
+    member = find(path)
+    check(member is not None and member.isfile(), f"/{path} must be a regular file for runtime user lookup")
 for path in ["bin/kikoeru-neo", "bin/kikoeru-neo-healthcheck", "bin/env",
              "bin/tini", "bin/kikoeru-neo-entrypoint", "bin/chown"]:
     check(find(path) is not None, f"/{path} is missing")

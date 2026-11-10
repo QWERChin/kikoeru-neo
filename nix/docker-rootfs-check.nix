@@ -17,6 +17,12 @@ in pkgs.runCommand "kikoeru-neo-docker-rootfs-check"
             assert not any(p.startswith(name + "/") for p in files)
         assert files["tmp"].mode == 0o1777
         assert files["config"].isdir()
+        for name in ["passwd", "group", "nsswitch.conf"]:
+            assert files["etc/" + name].isfile(), name
+        passwd = archive.extractfile(files["etc/passwd"]).read().decode()
+        group = archive.extractfile(files["etc/group"]).read().decode()
+        assert "kikoeru:x:1000:1000:kikoeru-neo:/data:/bin/false" in passwd.splitlines()
+        assert "kikoeru:x:1000:" in group.splitlines()
         for name in ["kikoeru-neo", "kikoeru-neo-healthcheck", "kikoeru-neo-entrypoint", "tini", "env", "chown"]:
             member = files["bin/" + name]
             assert member.issym(), name

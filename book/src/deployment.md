@@ -182,6 +182,7 @@ SQLx 暂时固定到上游提交 `ae659a0ca4e5e6708e589abc216f734deddb8e29`。�
 ### 镜像的约定
 
 - 进程以 uid 和 gid 1000 运行，入口由 tini 转发信号并回收子进程，再通过 `umask 077` 包装器启动服务。默认参数选择显式配置文件，缺少配置时失败。
+- `/etc/passwd`、`/etc/group` 和 `/etc/nsswitch.conf` 保存为普通文件，保留 uid 和 gid 1000 的服务账号。Docker 执行健康检查或 `exec` 命令前会读取账号信息，部分 containerd 版本会拒绝指向 Nix store 的绝对符号链接，导致探针尚未启动就报 `path escapes from parent`。两种镜像构建路径共用这项处理，见 [containerd 的兼容问题](https://github.com/containerd/containerd/issues/12683)。
 - `/data` 与 `/backup` 是空的私有目录，首次挂载命名卷时继承所有权和权限。保持 `/data` 为空是空目标导入的前提，备份则必须写到数据目录外。
 - SQLite 临时文件优先放在数据卷缓存中，避免大型索引或备份占满内存中的 `/tmp`。目录尚不存在时 SQLite 可以回退到 `/tmp`。
 - 健康检查从 `KIKOERU_LISTEN` 解析地址，通过 bash 的 TCP 重定向访问 `/api/ready`，不依赖 curl 或 wget。镜像没有 `/bin/sh`，不能用隐式 shell 的健康检查形式。
