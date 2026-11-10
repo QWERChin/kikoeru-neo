@@ -101,6 +101,8 @@ nix develop -c sh -c 'cd web && pnpm e2e:mock'
 
 浏览器来自 nixpkgs 的 `playwright-driver.browsers`，开发环境设置 `PLAYWRIGHT_BROWSERS_PATH`，不需要运行浏览器下载命令。`@playwright/test` 必须与锁定的驱动版本一致。每个浏览器项目使用自己的合成用户，避免进度相互影响。
 
+登录会话回归的媒体响应拦截器随页面存活，用内部标记只延迟或替换第一次匹配的请求，后续请求发送到真实后端。这样可以保持资料库导航期间的网络拦截状态稳定，避免 Chromium 的 JavaScript 或 CSS 请求在一次性路由自动清理时悬挂。
+
 | 用例位置 | 验证的行为 |
 |---|---|
 | `web/e2e/app.spec.ts` | 登录、分页、封面状态、退出、深链接和真实 404。 |

@@ -21,7 +21,15 @@ async function signOut(page: Page) {
 async function holdMediaResponse(page: Page, status = 200) {
 	let received!: (release: () => Promise<void>) => void;
 	const pending = new Promise<() => Promise<void>>((resolve) => (received = resolve));
+	// Keep routing enabled for the page: expiring the last handler during
+	// login navigation can strand Chromium's app-asset requests.
+	let intercepted = false;
 	await page.route('**/api/auth/media-token', async (route) => {
+		if (intercepted) {
+			await route.continue();
+			return;
+		}
+		intercepted = true;
 		const response = await route.fetch();
 		expect(response.status()).toBe(200);
 		received(async () => {
@@ -32,7 +40,7 @@ async function holdMediaResponse(page: Page, status = 200) {
 			});
 			await (await delivered).finished();
 		});
-	}, { times: 1 });
+	});
 	return { pending };
 }
 
