@@ -516,6 +516,7 @@
         };
         github-release = import ./nix/github-release-check.nix { inherit pkgs; };
         release-ci-gate = import ./nix/release-ci-gate-check.nix { inherit pkgs; };
+        pnpm-audit = import ./nix/pnpm-audit-check.nix { inherit pkgs; };
         soak = import ./nix/soak-check.nix { inherit pkgs; };
         docker-smoke = import ./nix/docker-smoke-check.nix { inherit pkgs; };
         codex-review = import ./nix/codex-review.nix { inherit pkgs; };

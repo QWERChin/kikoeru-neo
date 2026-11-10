@@ -2,7 +2,8 @@
 # the RustSec and npm advisory databases. It also runs daily, because a new
 # advisory can make an unchanged lockfile vulnerable. Advisories that cannot
 # affect kikoeru-neo are listed with a reason in .cargo/audit.toml and
-# web/pnpm-workspace.yaml.
+# scripts/pnpm-audit-exceptions.json. Frontend exceptions also expire and
+# apply only to their reviewed package versions and dependency paths.
 
 name: Advisories
 
@@ -13,6 +14,10 @@ on:
       - Cargo.lock
       - desktop/src-tauri/Cargo.lock
       - web/pnpm-lock.yaml
+      - web/package.json
+      - web/pnpm-workspace.yaml
+      - scripts/pnpm-audit.py
+      - scripts/pnpm-audit-exceptions.json
       - .cargo/audit.toml
       - flake.lock
       - .github/workflows/audit.yml
@@ -22,6 +27,10 @@ on:
       - Cargo.lock
       - desktop/src-tauri/Cargo.lock
       - web/pnpm-lock.yaml
+      - web/package.json
+      - web/pnpm-workspace.yaml
+      - scripts/pnpm-audit.py
+      - scripts/pnpm-audit-exceptions.json
       - .cargo/audit.toml
       - flake.lock
       - .github/workflows/audit.yml
@@ -56,5 +65,4 @@ jobs:
       # the built frontend, so --prod would audit nothing.
       - name: pnpm audit
         if: ${{ !cancelled() }}
-        working-directory: web
-        run: nix shell --inputs-from .. nixpkgs#pnpm -c pnpm audit
+        run: nix shell --inputs-from . nixpkgs#pnpm nixpkgs#python3 -c python3 scripts/pnpm-audit.py

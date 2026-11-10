@@ -1,0 +1,18 @@
+[
+  {
+    "ghsa": "GHSA-gcqx-w48m-w2h4",
+    "package": "deepmerge",
+    "version": "4.3.1",
+    "via": {
+      "package": "@sveltejs/vite-plugin-svelte",
+      "version": "7.3.1"
+    },
+    "paths": [
+      ".>@sveltejs/kit>@sveltejs/vite-plugin-svelte>deepmerge",
+      ".>@sveltejs/adapter-static>@sveltejs/kit>@sveltejs/vite-plugin-svelte>deepmerge",
+      ".>@sveltejs/vite-plugin-svelte>deepmerge"
+    ],
+    "expires": "2026-12-10",
+    "reason": "The Svelte Vite plugin merges trusted build configuration only. Production packages contain static frontend assets and never pass request or media data to this merge function."
+  }
+]
